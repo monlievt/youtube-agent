@@ -1,0 +1,8 @@
+- [x] Create Alembic migration for adding `encrypted_data_key` to `channel_credentials`
+- [x] Update SQLAlchemy model in `app/models/channel.py`
+- [x] Run Alembic migration to update database schema
+- [x] Modify `app/core/encryption.py` to support envelope encryption (generate_data_key, encrypt/decrypt with custom key)
+- [x] Refactor `app/services/credential_service.py` to use envelope encryption and add key rotation
+- [x] Add rate limiting to `POST /login` route in `app/main.py`
+- [x] Write unit tests for envelope encryption and key rotation in `tests/unit/test_encryption_envelope.py`
+- [x] Verify test suite runs successfully
