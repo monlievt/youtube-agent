@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+{% block title %}Channel Management{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>📺 Channel Management</h1>
+        <p class="page-desc">Kelola otorisasi OAuth YouTube dan status penyiaran channel musik.</p>
+    </div>
+    <button class="btn btn-primary" onclick="openAddChannel()">+ Tambah Channel</button>
+</div>
+
+<div class="channels-grid" id="channels-grid">
+    <div class="loading">Memuat channels...</div>
+</div>
+
+<!-- Modal Tambah Channel -->
+<div class="modal" id="add-channel-modal" style="display:none">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>📺 Tambah Channel Baru</h3>
+            <button class="btn-close" onclick="closeModal('add-channel-modal')">✕</button>
+        </div>
+        <div class="modal-body">
+            <label>Nama Channel *</label>
+            <input type="text" id="new-channel-name" class="form-input" placeholder="channel_lofi_vibes" maxlength="100">
+            <label>Genre *</label>
+            <select id="new-channel-genre" class="form-input">
+                <option value="lofi">Lofi</option>
+                <option value="phonk">Phonk</option>
+                <option value="jazz">Jazz</option>
+                <option value="ambient">Ambient</option>
+                <option value="other">Lainnya</option>
+            </select>
+            <label>Trust Level</label>
+            <select id="new-channel-trust" class="form-input">
+                <option value="NEW">NEW — Butuh approval manual</option>
+                <option value="TRUSTED">TRUSTED — Upload otomatis</option>
+            </select>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-primary" onclick="createChannel()">Buat Channel</button>
+            <button class="btn btn-tertiary" onclick="closeModal('add-channel-modal')">Batal</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function loadChannels() {
+    const res = await fetch('/api/channels');
+    const channels = await res.json();
+    renderChannels(channels);
+}
+
+function renderChannels(channels) {
+    const grid = document.getElementById('channels-grid');
+    if (!channels.length) {
+        grid.innerHTML = '<div class="empty-state">Belum ada channel. Klik "Tambah Channel" untuk mulai.</div>';
+        return;
+    }
+
+    grid.innerHTML = channels.map(ch => {
+        const genreClass = 'genre-' + (ch.genre || 'other').toLowerCase();
+        
+        const trustBadge = ch.trust_level === 'TRUSTED' ? 'badge-green' : 'badge-yellow';
+        const activeBadge = ch.is_active ? 'badge-green' : 'badge-gray';
+        const authBadge = ch.auth_status === 'VALID' ? 'badge-green' : ch.auth_status === 'REVOKED' ? 'badge-red' : 'badge-yellow';
+
+        return `
+        <div class="channel-card ${genreClass}">
+            <div class="channel-card-header">
+                <h3>${ch.channel_name}</h3>
+                <span class="badge ${activeBadge}">${ch.is_active ? 'AKTIF' : 'PAUSED'}</span>
+            </div>
+            <div class="channel-meta">
+                <div>Genre: <strong style="text-transform: capitalize;">${ch.genre}</strong></div>
+                <div>Trust Level: <span class="badge ${trustBadge}">${ch.trust_level}</span></div>
+                <div>OAuth Status: <span class="badge ${authBadge}">${ch.auth_status || 'N/A'}</span></div>
+            </div>
+            <div class="channel-actions">
+                <a href="/auth/youtube/${ch.id}" class="btn btn-xs btn-primary">🔑 OAuth Setup</a>
+                <button class="btn btn-xs btn-tertiary"
+                    onclick="toggleTrust(${ch.id}, '${ch.trust_level}')">
+                    ${ch.trust_level === 'TRUSTED' ? '↓ Set NEW' : '↑ Set TRUSTED'}
+                </button>
+                <button class="btn btn-xs btn-tertiary"
+                    onclick="toggleActive(${ch.id}, ${ch.is_active})">
+                    ${ch.is_active ? '⏸ Pause' : '▶ Resume'}
+                </button>
+            </div>
+        </div>
+        `;
+    }).join('');
+}
+
+async function toggleTrust(id, current) {
+    const newTrust = current === 'TRUSTED' ? 'NEW' : 'TRUSTED';
+    if (!confirm(`Ubah trust level ke ${newTrust}?`)) return;
+    await fetch(`/api/channels/${id}`, {
+        method: 'PATCH',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({trust_level: newTrust})
+    });
+    loadChannels();
+}
+
+async function toggleActive(id, current) {
+    const newActive = !current;
+    if (!confirm(`${newActive ? 'Resume' : 'Pause'} channel ini?`)) return;
+    await fetch(`/api/channels/${id}`, {
+        method: 'PATCH',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({is_active: newActive})
+    });
+    loadChannels();
+}
+
+function openAddChannel() {
+    document.getElementById('add-channel-modal').style.display = 'flex';
+}
+
+function closeModal(id) {
+    document.getElementById(id).style.display = 'none';
+}
+
+async function createChannel() {
+    const name = document.getElementById('new-channel-name').value.trim();
+    const genre = document.getElementById('new-channel-genre').value;
+    const trust = document.getElementById('new-channel-trust').value;
+
+    if (!name) { alert('Nama channel wajib diisi'); return; }
+
+    await fetch('/api/channels', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({channel_name: name, genre, trust_level: trust})
+    });
+    closeModal('add-channel-modal');
+    loadChannels();
+}
+
+loadChannels();
+</script>
+{% endblock %}

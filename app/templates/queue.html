@@ -1,0 +1,251 @@
+{% extends "base.html" %}
+{% block title %}Queue Monitor{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>📋 Queue Monitor</h1>
+        <p class="page-desc">Pantau dan kelola antrean unggahan video otomatis.</p>
+    </div>
+    <div class="header-actions">
+        <select id="channel-filter" class="form-input" style="margin-bottom: 0; max-width: 180px;" onchange="filterQueue()">
+            <option value="">Semua Channel</option>
+        </select>
+        <select id="status-filter" class="form-input" style="margin-bottom: 0; max-width: 180px;" onchange="filterQueue()">
+            <option value="">Semua Status</option>
+            <option value="PENDING">PENDING</option>
+            <option value="AWAITING_APPROVAL">AWAITING APPROVAL</option>
+            <option value="SCHEDULED">SCHEDULED</option>
+            <option value="UPLOADING">UPLOADING</option>
+            <option value="DONE">DONE</option>
+            <option value="FAILED_PERMANENT">FAILED</option>
+        </select>
+        <button class="btn btn-tertiary" onclick="loadQueue()">🔄 Refresh</button>
+    </div>
+</div>
+
+<!-- Status counters -->
+<div class="stats-grid" id="stats-grid">
+    <div class="stat-card" style="border-top: 4px solid var(--color-slate);">
+        <div class="stat-number" id="count-pending">—</div>
+        <div class="stat-label">PENDING</div>
+    </div>
+    <div class="stat-card" style="border-top: 4px solid #b45309;">
+        <div class="stat-number" id="count-approval">—</div>
+        <div class="stat-label">AWAITING APPROVAL</div>
+    </div>
+    <div class="stat-card" style="border-top: 4px solid #7e22ce;">
+        <div class="stat-number" id="count-scheduled">—</div>
+        <div class="stat-label">SCHEDULED</div>
+    </div>
+    <div class="stat-card" style="border-top: 4px solid var(--color-success-text);">
+        <div class="stat-number" id="count-done">—</div>
+        <div class="stat-label">DONE</div>
+    </div>
+    <div class="stat-card" style="border-top: 4px solid var(--color-error-text);">
+        <div class="stat-number" id="count-failed">—</div>
+        <div class="stat-label">FAILED</div>
+    </div>
+</div>
+
+<!-- Queue table -->
+<div class="card" style="padding: 0; overflow: hidden;">
+    <div class="table-container">
+        <table class="table" id="queue-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Channel</th>
+                    <th>File</th>
+                    <th>Judul</th>
+                    <th>Status</th>
+                    <th>Dijadwalkan</th>
+                    <th>YouTube ID</th>
+                    <th>Aksi</th>
+                </tr>
+            </thead>
+            <tbody id="queue-tbody">
+                <tr><td colspan="8" class="loading">Memuat data...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Modal Override Metadata -->
+<div class="modal" id="override-modal" style="display:none">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>✏️ Override Metadata</h3>
+            <button class="btn-close" onclick="closeModal()">✕</button>
+        </div>
+        <div class="modal-body">
+            <input type="hidden" id="override-queue-id">
+            <label>Judul (max 100 karakter)</label>
+            <input type="text" id="override-title" maxlength="100" class="form-input">
+            <span id="title-count" class="char-count">0/100</span>
+            <label>Deskripsi (max 5000 karakter)</label>
+            <textarea id="override-description" maxlength="5000" rows="8" class="form-textarea"></textarea>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-primary" onclick="saveOverride()">💾 Simpan</button>
+            <button class="btn btn-tertiary" onclick="closeModal()">Batal</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const STATUS_COLORS = {
+    'PENDING': 'badge-gray',
+    'METADATA_READY': 'badge-blue',
+    'AWAITING_APPROVAL': 'badge-yellow',
+    'SCHEDULED': 'badge-purple',
+    'UPLOADING': 'badge-orange',
+    'PRIVATE_UPLOADED': 'badge-teal',
+    'THUMBNAIL_ATTACHED': 'badge-teal',
+    'SCHEDULED_PUBLIC': 'badge-purple',
+    'DONE': 'badge-green',
+    'THUMBNAIL_FAILED': 'badge-orange',
+    'FAILED_PERMANENT': 'badge-red',
+    'PAUSED': 'badge-gray',
+    'PAUSED_EXTERNAL': 'badge-gray',
+    'QUOTA_EXHAUSTED': 'badge-red',
+    'NEEDS_REAUTH': 'badge-red',
+};
+
+let allItems = [];
+
+async function loadQueue() {
+    const channelId = document.getElementById('channel-filter').value;
+    const status = document.getElementById('status-filter').value;
+
+    let url = '/api/queue?';
+    if (channelId) url += `channel_id=${channelId}&`;
+    if (status) url += `status=${status}`;
+
+    try {
+        const res = await fetch(url);
+        allItems = await res.json();
+        renderTable(allItems);
+        updateCounts(allItems);
+    } catch (e) {
+        console.error('Gagal load queue:', e);
+    }
+}
+
+function renderTable(items) {
+    const tbody = document.getElementById('queue-tbody');
+    if (!items.length) {
+        tbody.innerHTML = '<tr><td colspan="8" class="loading">Tidak ada data</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = items.map(item => {
+        const filename = item.staging_path.split('/').pop();
+        const badgeClass = STATUS_COLORS[item.status] || 'badge-gray';
+        const scheduledTime = item.scheduled_time
+            ? new Date(item.scheduled_time).toLocaleString('id-ID', {timeZone: 'Asia/Jakarta'})
+            : '—';
+
+        const actions = buildActions(item);
+
+        return `
+            <tr>
+                <td>#${item.id}</td>
+                <td><strong>${item.channel_id}</strong></td>
+                <td class="filename" title="${filename}">${filename}</td>
+                <td class="title-cell" title="${item.title_final || ''}">${item.title_final || '<em>Belum ada</em>'}</td>
+                <td><span class="badge ${badgeClass}">${item.status}</span></td>
+                <td>${scheduledTime}</td>
+                <td>${item.youtube_video_id ? `<a href="https://youtu.be/${item.youtube_video_id}" target="_blank" style="color: var(--color-info-text); font-weight: 500;">${item.youtube_video_id}</a>` : '—'}</td>
+                <td class="actions">${actions}</td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function buildActions(item) {
+    const btns = [];
+    if (item.status === 'AWAITING_APPROVAL') {
+        btns.push(`<button class="btn btn-xs btn-green" onclick="approve(${item.id})">✓ Approve</button>`);
+        btns.push(`<button class="btn btn-xs btn-red" onclick="reject(${item.id})">✗ Reject</button>`);
+    }
+    if (['AWAITING_APPROVAL', 'METADATA_READY', 'SCHEDULED'].includes(item.status)) {
+        btns.push(`<button class="btn btn-xs btn-blue" onclick="openOverride(${item.id}, '${(item.title_final||'').replace(/'/g,"\\'")}', '')">✏️ Edit</button>`);
+    }
+    if (['FAILED_PERMANENT', 'THUMBNAIL_FAILED'].includes(item.status)) {
+        btns.push(`<button class="btn btn-xs btn-orange" onclick="requeue(${item.id})">🔄 Re-queue</button>`);
+    }
+    return btns.join('');
+}
+
+function updateCounts(items) {
+    const counts = {};
+    items.forEach(i => { counts[i.status] = (counts[i.status] || 0) + 1; });
+    document.getElementById('count-pending').textContent = counts['PENDING'] || 0;
+    document.getElementById('count-approval').textContent = counts['AWAITING_APPROVAL'] || 0;
+    document.getElementById('count-scheduled').textContent = (counts['SCHEDULED'] || 0) + (counts['SCHEDULED_PUBLIC'] || 0);
+    document.getElementById('count-done').textContent = counts['DONE'] || 0;
+    document.getElementById('count-failed').textContent = (counts['FAILED_PERMANENT'] || 0) + (counts['THUMBNAIL_FAILED'] || 0);
+}
+
+async function approve(id) {
+    if (!confirm(`Approve queue item #${id}?`)) return;
+    await fetch(`/api/queue/${id}/approve`, {method: 'POST'});
+    loadQueue();
+}
+
+async function reject(id) {
+    if (!confirm(`Reject dan regenerate metadata untuk #${id}?`)) return;
+    await fetch(`/api/queue/${id}/reject`, {method: 'POST'});
+    loadQueue();
+}
+
+async function requeue(id) {
+    const reason = prompt('Alasan re-queue:', 'Manual re-queue from dashboard');
+    if (!reason) return;
+    await fetch(`/api/queue/${id}/requeue`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({reason})
+    });
+    loadQueue();
+}
+
+function openOverride(id, title, description) {
+    document.getElementById('override-queue-id').value = id;
+    document.getElementById('override-title').value = title;
+    document.getElementById('override-description').value = description;
+    document.getElementById('title-count').textContent = `${title.length}/100`;
+    document.getElementById('override-modal').style.display = 'flex';
+}
+
+function closeModal() {
+    document.getElementById('override-modal').style.display = 'none';
+}
+
+async function saveOverride() {
+    const id = document.getElementById('override-queue-id').value;
+    const title = document.getElementById('override-title').value;
+    const description = document.getElementById('override-description').value;
+
+    await fetch(`/api/queue/${id}/metadata`, {
+        method: 'PATCH',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({title, description})
+    });
+    closeModal();
+    loadQueue();
+}
+
+// Title char counter
+document.getElementById('override-title')?.addEventListener('input', function() {
+    document.getElementById('title-count').textContent = `${this.value.length}/100`;
+});
+
+// Auto-refresh setiap 30 detik
+loadQueue();
+setInterval(loadQueue, 30000);
+</script>
+{% endblock %}

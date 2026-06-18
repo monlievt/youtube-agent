@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Hermes{% endblock %} — YouTube Automation</title>
+    <meta name="description" content="Hermes YouTube Automation System — Kelola upload otomatis channel musik">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="navbar-left">
+            <a href="/" class="navbar-brand">
+                <span class="brand-icon">⚡</span>
+                <span class="brand-name">Hermes</span>
+            </a>
+            <ul class="navbar-menu">
+                <li><a href="/" class="nav-link {% if request.url.path == '/' %}active{% endif %}">
+                    📋 Queue Monitor
+                </a></li>
+                <li><a href="/channels" class="nav-link {% if request.url.path == '/channels' %}active{% endif %}">
+                    📺 Channels
+                </a></li>
+                <li><a href="/evaluations" class="nav-link {% if request.url.path == '/evaluations' %}active{% endif %}">
+                    📊 Evaluasi
+                </a></li>
+            </ul>
+        </div>
+        <div class="navbar-right">
+            <div class="system-status" id="system-status">
+                <span class="status-dot" id="status-dot">●</span>
+                <span id="status-text">Checking...</span>
+            </div>
+            <a href="/logout" class="btn btn-xs btn-secondary">Logout</a>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        {% block content %}{% endblock %}
+    </main>
+
+    <script>
+        // Health check setiap 30 detik
+        async function checkHealth() {
+            try {
+                const res = await fetch('/ready');
+                const data = await res.json();
+                const dot = document.getElementById('status-dot');
+                const text = document.getElementById('status-text');
+                if (data.status === 'ready') {
+                    dot.style.color = '#1ba673';
+                    text.textContent = 'System OK';
+                } else {
+                    dot.style.color = '#d45656';
+                    text.textContent = 'Degraded';
+                }
+            } catch (e) {
+                document.getElementById('status-dot').style.color = '#d45656';
+                document.getElementById('status-text').textContent = 'Down';
+            }
+        }
+        checkHealth();
+        setInterval(checkHealth, 30000);
+    </script>
+
+    {% block scripts %}{% endblock %}
+</body>
+</html>

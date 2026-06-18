@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+{% block title %}Evaluasi Video{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>📊 Evaluasi & Optimasi Performa</h1>
+        <p class="page-desc">Video berkinerja rendah dianalisis secara otomatis pada H+24 dan H+7. Terapkan rekomendasi AI untuk meningkatkan CTR.</p>
+    </div>
+</div>
+
+<div id="eval-loading" class="loading-state">
+    <div class="spinner"></div>
+    <p>Memuat evaluasi...</p>
+</div>
+
+<div id="no-evals" class="empty-state" style="display: none;">
+    <div style="font-size: 48px; margin-bottom: 16px;">🎉</div>
+    <h2>Semua Video Berperforma Bagus!</h2>
+    <p>Tidak ada video yang membutuhkan tindakan (Action Required) saat ini.</p>
+</div>
+
+<div class="evaluations-grid" id="evaluations-list">
+    <!-- Diisi secara dinamis melalui JavaScript -->
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    async function loadEvaluations() {
+        const loadingEl = document.getElementById('eval-loading');
+        const emptyEl = document.getElementById('no-evals');
+        const listEl = document.getElementById('evaluations-list');
+        
+        try {
+            loadingEl.style.display = 'block';
+            emptyEl.style.display = 'none';
+            listEl.innerHTML = '';
+            
+            const res = await fetch('/api/evaluations');
+            if (!res.ok) throw new Error("Gagal memuat data");
+            const evals = await res.json();
+            
+            loadingEl.style.display = 'none';
+            
+            if (evals.length === 0) {
+                emptyEl.style.display = 'block';
+                return;
+            }
+            
+            evals.forEach(ev => {
+                const card = document.createElement('div');
+                card.className = 'eval-card';
+                card.id = `eval-card-${ev.id}`;
+                
+                // Urutkan aksi rekomendasi dan badge
+                let actionBadge = `<span class="badge badge-green">KEEP</span>`;
+                if (ev.recommended_action === 'CHANGE_TITLE') {
+                    actionBadge = `<span class="badge badge-yellow">CHANGE TITLE</span>`;
+                } else if (ev.recommended_action === 'CHANGE_THUMBNAIL') {
+                    actionBadge = `<span class="badge badge-yellow">CHANGE THUMBNAIL</span>`;
+                } else if (ev.recommended_action === 'CHANGE_MULTIPLE') {
+                    actionBadge = `<span class="badge badge-red">CHANGE MULTIPLE</span>`;
+                } else if (ev.recommended_action === 'CHECK_CONTENT') {
+                    actionBadge = `<span class="badge badge-blue">CHECK CONTENT</span>`;
+                }
+
+                // Hitung status warna score
+                let scoreClass = 'score-low';
+                if (ev.performance_score >= 80) scoreClass = 'score-high';
+                else if (ev.performance_score >= 50) scoreClass = 'score-medium';
+
+                // Tampilkan opsi rekomendasi
+                let optionsHtml = '';
+                if (ev.options && ev.options.length > 0) {
+                    optionsHtml = `
+                        <div class="eval-options-section">
+                            <h4>Rekomendasi Judul Baru (AI):</h4>
+                            ${ev.options.map(opt => `
+                                <div class="eval-option-item">
+                                    <p class="opt-val">"${opt.option_value}"</p>
+                                    <button class="btn btn-primary btn-xs" style="align-self: flex-start;" onclick="applyOption(${ev.id}, ${opt.id})">Terapkan Judul</button>
+                                </div>
+                            `).join('')}
+                        </div>
+                    `;
+                }
+
+                card.innerHTML = `
+                    <div class="eval-card-header">
+                        <div>
+                            <h3>${ev.channel_name}</h3>
+                            <p class="video-meta-id">YouTube ID: <code>${ev.youtube_video_id}</code> | Tahap: <strong class="text-accent">${ev.eval_stage}</strong></p>
+                        </div>
+                        <div class="score-badge ${scoreClass}">
+                            <span class="score-val">${ev.performance_score}</span>
+                            <span class="score-lbl">Score</span>
+                        </div>
+                    </div>
+                    
+                    <div class="eval-metrics-grid">
+                        <div class="metric-item">
+                            <span class="metric-lbl">Views</span>
+                            <span class="metric-val">${ev.views}</span>
+                        </div>
+                        <div class="metric-item">
+                            <span class="metric-lbl">CTR Video</span>
+                            <span class="metric-val">${ev.ctr_percentage}%</span>
+                            <span class="metric-sub">Base: ${ev.baseline_ctr}%</span>
+                        </div>
+                        <div class="metric-item">
+                            <span class="metric-lbl">AVD</span>
+                            <span class="metric-val">${ev.avd_seconds}s</span>
+                            <span class="metric-sub">Base: ${Math.round(ev.baseline_avd)}s</span>
+                        </div>
+                    </div>
+
+                    <div class="eval-diagnosis">
+                        <strong>Diagnosis:</strong>
+                        <p>${ev.diagnosis_summary}</p>
+                    </div>
+
+                    <div class="eval-actions-footer">
+                        <div class="badge-container" style="font-size: 13px; font-weight: 500; color: var(--color-steel);">
+                            Rekomendasi: ${actionBadge}
+                        </div>
+                        <div class="action-buttons">
+                            <button class="btn btn-tertiary btn-xs" onclick="rejectEval(${ev.id})">Abaikan</button>
+                        </div>
+                    </div>
+                    ${optionsHtml}
+                `;
+                listEl.appendChild(card);
+            });
+            
+        } catch (e) {
+            loadingEl.style.display = 'none';
+            alert("Error memuat halaman evaluasi: " + e.message);
+        }
+    }
+
+    async function applyOption(evalId, optionId) {
+        if (!confirm("Apakah Anda yakin ingin menerapkan rekomendasi judul baru ini ke YouTube?")) return;
+        
+        try {
+            const res = await fetch(`/api/evaluations/${evalId}/apply-option?option_id=${optionId}`, {
+                method: 'POST'
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.detail || "Gagal menerapkan rekomendasi");
+            
+            alert("Berhasil! Judul video baru telah diperbarui di YouTube.");
+            loadEvaluations();
+        } catch (e) {
+            alert("Gagal: " + e.message);
+        }
+    }
+
+    async function rejectEval(evalId) {
+        if (!confirm("Abaikan evaluasi ini? Halaman tidak akan menampilkan rekomendasi ini lagi.")) return;
+        
+        try {
+            const res = await fetch(`/api/evaluations/${evalId}/reject`, {
+                method: 'POST'
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.detail || "Gagal mengabaikan");
+            
+            loadEvaluations();
+        } catch (e) {
+            alert("Gagal: " + e.message);
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', loadEvaluations);
+</script>
+{% endblock %}

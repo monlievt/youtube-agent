@@ -1,0 +1,15 @@
+# docker-compose.override.yml — Development overrides
+# File ini otomatis di-merge oleh Docker Compose saat development
+# Jangan commit konfigurasi production ke sini
+
+services:
+  api:
+    environment:
+      APP_ENV: development
+      LOG_LEVEL: DEBUG
+    # Hot reload sudah aktif via --reload di command
+
+  celery_worker:
+    environment:
+      APP_ENV: development
+      LOG_LEVEL: DEBUG
