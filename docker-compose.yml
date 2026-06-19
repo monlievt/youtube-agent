@@ -60,6 +60,9 @@ services:
       - .:/app
       - ${STAGING_PATH:-/var/staging}:/var/staging
       - ${NFS_THUMBNAILS_PATH:-/tmp/thumbnails}:/mnt/omv-thumbnails
+      # OAuth: jika menggunakan client_secrets.json, uncomment baris di bawah
+      # dan pastikan file ada sebelum menjalankan docker compose up
+      # - ./client_secrets.json:/app/client_secrets.json:ro
     depends_on:
       db:
         condition: service_healthy

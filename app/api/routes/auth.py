@@ -3,7 +3,15 @@ app/api/routes/auth.py
 OAuth 2.0 flow untuk onboarding channel YouTube.
 Step 1: GET /auth/youtube/{channel_id} → authorization URL
 Step 2: GET /auth/youtube/{channel_id}/callback → simpan token
+
+Konfigurasi credentials (pilih salah satu, prioritas dari atas ke bawah):
+  1. File client_secrets.json di root project (dihasilkan dari Google Cloud Console)
+  2. Env vars GOOGLE_CLIENT_ID + GOOGLE_CLIENT_SECRET di .env
 """
+import json
+import os
+from pathlib import Path
+
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from google_auth_oauthlib.flow import Flow
@@ -17,6 +25,67 @@ from app.services.credential_service import CredentialService
 log = get_logger(__name__)
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 settings = get_settings()
+
+# Path ke client_secrets.json — dicari di beberapa lokasi
+# /app/client_secrets.json: standar di dalam Docker container
+# Path relatif ke file ini (naik 3 level ke root project): untuk development lokal
+_SEARCH_PATHS = [
+    Path("/app/client_secrets.json"),                         # Docker
+    Path(__file__).resolve().parent.parent.parent.parent / "client_secrets.json",  # Dev
+]
+_CLIENT_SECRETS_PATH = next((p for p in _SEARCH_PATHS if p.exists()), None)
+
+
+def _get_client_config(redirect_uri: str) -> dict:
+    """
+    Baca OAuth client config dari client_secrets.json atau env vars.
+    Prioritas: file JSON > env vars.
+    Raise HTTPException 500 jika tidak ada konfigurasi yang valid.
+    """
+    # Opsi 1: client_secrets.json (standar Google)
+    if _CLIENT_SECRETS_PATH is not None:
+        with open(_CLIENT_SECRETS_PATH) as f:
+            secrets = json.load(f)
+        # Format Google: {"web": {"client_id": ..., "client_secret": ..., ...}}
+        web = secrets.get("web") or secrets.get("installed")
+        if not web:
+            raise HTTPException(
+                status_code=500,
+                detail="client_secrets.json tidak valid — key 'web' atau 'installed' tidak ditemukan",
+            )
+        return {
+            "web": {
+                "client_id": web["client_id"],
+                "client_secret": web["client_secret"],
+                "redirect_uris": [redirect_uri],
+                "auth_uri": web.get("auth_uri", "https://accounts.google.com/o/oauth2/auth"),
+                "token_uri": web.get("token_uri", "https://oauth2.googleapis.com/token"),
+            }
+        }
+
+    # Opsi 2: env vars
+    client_id = settings.google_client_id
+    client_secret = settings.google_client_secret
+
+    if not client_id or not client_secret:
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                "Google OAuth belum dikonfigurasi. "
+                "Letakkan file client_secrets.json di root project, "
+                "atau set env vars GOOGLE_CLIENT_ID dan GOOGLE_CLIENT_SECRET."
+            ),
+        )
+
+    return {
+        "web": {
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "redirect_uris": [redirect_uri],
+            "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+            "token_uri": "https://oauth2.googleapis.com/token",
+        }
+    }
 
 SCOPES = [
     "https://www.googleapis.com/auth/youtube.upload",
@@ -48,16 +117,9 @@ async def start_oauth(
 
     redirect_uri = str(request.url_for("oauth_callback", channel_id=channel_id))
 
+    client_config = _get_client_config(redirect_uri)
     flow = Flow.from_client_config(
-        {
-            "web": {
-                "client_id": "PLACEHOLDER_CLIENT_ID",  # Akan diisi saat setup
-                "client_secret": "PLACEHOLDER_CLIENT_SECRET",
-                "redirect_uris": [redirect_uri],
-                "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-                "token_uri": "https://oauth2.googleapis.com/token",
-            }
-        },
+        client_config,
         scopes=SCOPES,
         redirect_uri=redirect_uri,
     )
