@@ -61,6 +61,10 @@ class Settings(BaseSettings):
     google_client_id: str | None = None
     google_client_secret: str | None = None
 
+    # API Bearer Token (untuk akses API via curl/script tanpa session cookie)
+    # Generate dengan: python -c "import secrets; print(secrets.token_urlsafe(32))"
+    api_bearer_token: str | None = None
+
 
 
 @lru_cache

@@ -5,10 +5,11 @@ FastAPI application factory.
 from contextlib import asynccontextmanager
 import secrets
 
-from fastapi import FastAPI, Request, Form
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi import FastAPI, Request, Form, Response
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.api.routes import auth, channels, health, queue, evaluations
 from app.api.dependencies import CurrentPageUser
@@ -45,6 +46,36 @@ async def check_rate_limit(ip: str, limit: int = 5, period: int = 60) -> bool:
         return True  # Fallback: izinkan jika Redis mati
 
 
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    """
+    Tambahkan security headers ke semua response HTTP.
+    """
+    async def dispatch(self, request: Request, call_next) -> Response:
+        response = await call_next(request)
+        is_prod = settings.app_env == "production"
+
+        # Selalu aktif
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; "
+            "script-src 'self' 'unsafe-inline'; "
+            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+            "font-src 'self' https://fonts.gstatic.com; "
+            "img-src 'self' data:; "
+            "connect-src 'self';"
+        )
+
+        # Hanya di production
+        if is_prod:
+            response.headers["Strict-Transport-Security"] = (
+                "max-age=31536000; includeSubDomains; preload"
+            )
+
+        return response
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -62,10 +93,14 @@ app = FastAPI(
     title="Hermes YouTube Automation System",
     description="Sistem otomasi upload YouTube untuk channel musik — dikontrol oleh 1 orang.",
     version="1.0.0",
-    docs_url="/docs" if settings.app_env == "development" else None,
-    redoc_url="/redoc" if settings.app_env == "development" else None,
+    # Docs hanya tampil di development. Di production, diproteksi via route custom.
+    docs_url=None,
+    redoc_url=None,
     lifespan=lifespan,
 )
+
+# ── Security Middleware ────────────────────────────────────────
+app.add_middleware(SecurityHeadersMiddleware)
 
 # ── Static files & Templates ──────────────────────────────────
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
@@ -82,6 +117,16 @@ app.include_router(evaluations.router)
 # ── Login & Auth Routes ────────────────────────────────────────
 @app.get("/login", response_class=HTMLResponse, include_in_schema=False)
 async def login_page(request: Request):
+    # Jika sudah login, redirect ke dashboard
+    session_cookie = request.cookies.get("hermes_session")
+    if session_cookie:
+        try:
+            from app.core.encryption import decrypt
+            username = decrypt(session_cookie)
+            if username == settings.dashboard_username:
+                return RedirectResponse(url="/", status_code=303)
+        except Exception:
+            pass
     return templates.TemplateResponse("login.html", {"request": request})
 
 
@@ -113,13 +158,15 @@ async def login_post(
             {"request": request, "error": "Username atau password salah"}
         )
 
+    is_production = settings.app_env == "production"
     response = RedirectResponse(url="/", status_code=303)
     response.set_cookie(
         key="hermes_session",
         value=encrypt(username),
         httponly=True,
-        max_age=86400 * 30,  # 30 hari
-        samesite="lax",
+        secure=is_production,      # HTTPS only di production
+        samesite="strict",         # Strict: tidak dikirim di cross-site request apapun
+        max_age=86400 * 7,         # 7 hari (lebih konservatif dari 30 hari)
     )
     return response
 
@@ -145,4 +192,33 @@ async def dashboard_channels(request: Request, user: CurrentPageUser):
 @app.get("/evaluations", response_class=HTMLResponse, include_in_schema=False)
 async def dashboard_evaluations(request: Request, user: CurrentPageUser):
     return templates.TemplateResponse("evaluations.html", {"request": request})
+
+
+# ── Protected API Docs (selalu diproteksi, dev & production) ───
+from fastapi.openapi.docs import get_swagger_ui_html, get_redoc_html
+
+
+@app.get("/docs", response_class=HTMLResponse, include_in_schema=False)
+async def protected_docs(request: Request, user: CurrentPageUser):
+    """Swagger UI — hanya bisa diakses setelah login."""
+    return get_swagger_ui_html(
+        openapi_url="/openapi.json",
+        title="Hermes API Docs",
+    )
+
+
+@app.get("/redoc", response_class=HTMLResponse, include_in_schema=False)
+async def protected_redoc(request: Request, user: CurrentPageUser):
+    """ReDoc — hanya bisa diakses setelah login."""
+    return get_redoc_html(
+        openapi_url="/openapi.json",
+        title="Hermes API Reference",
+    )
+
+
+@app.get("/openapi.json", include_in_schema=False)
+async def protected_openapi(request: Request, user: CurrentPageUser):
+    """OpenAPI schema — diproteksi agar tidak bisa diakses publik."""
+    return app.openapi()
+
 
