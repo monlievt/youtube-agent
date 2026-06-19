@@ -10,9 +10,13 @@
     <button class="btn btn-primary" onclick="openAddChannel()">+ Tambah Channel</button>
 </div>
 
+<!-- Toast notifikasi OAuth (muncul jika redirect dari callback) -->
+<div id="oauth-toast" style="display:none;margin-bottom:16px;border-radius:12px;padding:14px 18px;font-size:14px;font-weight:500;display:none;align-items:center;gap:10px;"></div>
+
 <div class="channels-grid" id="channels-grid">
     <div class="loading">Memuat channels...</div>
 </div>
+
 
 <!-- Modal Tambah Channel -->
 <div class="modal" id="add-channel-modal" style="display:none">
@@ -155,6 +159,36 @@
 <script>
 let _oauthChannelId = null;
 let _oauthState = null;
+
+/* ── OAuth result notification ─────────────────────────────── */
+function checkOAuthResult() {
+    const params = new URLSearchParams(window.location.search);
+    const status = params.get('oauth');
+    if (!status) return;
+
+    const toast = document.getElementById('oauth-toast');
+    const channelId = params.get('channel_id');
+    const msg = params.get('msg');
+
+    if (status === 'success') {
+        toast.style.background = '#f0fdf4';
+        toast.style.border = '1px solid #bbf7d0';
+        toast.style.color = '#15803d';
+        toast.innerHTML = `✅ <strong>Channel berhasil diotorisasi!</strong> Token tersimpan. OAuth status sudah VALID.`;
+    } else {
+        toast.style.background = '#fef2f2';
+        toast.style.border = '1px solid #fee2e2';
+        toast.style.color = '#d45656';
+        toast.innerHTML = `❌ <strong>OAuth gagal.</strong> ${msg ? decodeURIComponent(msg) : 'Terjadi kesalahan. Coba lagi.'}`;
+    }
+    toast.style.display = 'flex';
+
+    // Hapus query param dari URL (bersihkan history)
+    window.history.replaceState({}, document.title, '/channels');
+
+    // Auto-hide setelah 8 detik
+    setTimeout(() => { toast.style.display = 'none'; }, 8000);
+}
 
 async function loadChannels() {
     const res = await fetch('/api/channels');
@@ -360,6 +394,7 @@ async function createChannel() {
     loadChannels();
 }
 
+checkOAuthResult();
 loadChannels();
 </script>
 {% endblock %}

@@ -158,7 +158,9 @@ async def start_oauth(
 @router.get(
     "/youtube/{channel_id}/callback",
     name="oauth_callback",
-    summary="Step 2: Callback dari Google — simpan token",
+    summary="Step 2: Callback dari Google — simpan token, redirect ke dashboard",
+    response_class=RedirectResponse,
+    include_in_schema=False,
 )
 async def oauth_callback(
     channel_id: int,
@@ -166,14 +168,17 @@ async def oauth_callback(
     state: str,
     db: DBSession,
     request: Request,
-) -> dict:
+):
     """
     Handle callback dari Google OAuth.
-    Exchange code → token → enkripsi → simpan ke DB.
+    Exchange code → token → enkripsi → simpan ke DB → redirect ke /channels.
     """
     flow = _pending_flows.pop(state, None)
     if not flow:
-        raise HTTPException(status_code=400, detail="State tidak valid atau expired")
+        return RedirectResponse(
+            url="/channels?oauth=error&msg=State+tidak+valid+atau+expired",
+            status_code=303,
+        )
 
     # Harus identik dengan redirect_uri yang dipakai di start_oauth
     callback_path = request.url_for("oauth_callback", channel_id=channel_id).path
@@ -187,7 +192,10 @@ async def oauth_callback(
         flow.fetch_token(code=code)
     except Exception as e:
         log.error("oauth_callback_failed", channel_id=channel_id, error=str(e))
-        raise HTTPException(status_code=400, detail=f"Token exchange gagal: {e}")
+        return RedirectResponse(
+            url=f"/channels?oauth=error&msg=Token+exchange+gagal",
+            status_code=303,
+        )
 
     credentials = flow.credentials
     credential_service = CredentialService(db)
@@ -211,8 +219,8 @@ async def oauth_callback(
         function="oauth_callback",
     )
 
-    return {
-        "status": "success",
-        "channel_id": channel_id,
-        "message": "Token berhasil disimpan. Channel siap digunakan.",
-    }
+    # Redirect ke halaman channels dengan notifikasi sukses
+    return RedirectResponse(
+        url=f"/channels?oauth=success&channel_id={channel_id}",
+        status_code=303,
+    )
