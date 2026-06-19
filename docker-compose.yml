@@ -106,11 +106,8 @@ services:
       dockerfile: docker/Dockerfile
     container_name: hermes_beat
     restart: unless-stopped
-    command: >
-      sh -c "mkdir -p /var/lib/celery && chmod 777 /var/lib/celery &&
-             celery -A app.workers.celery_app beat --loglevel=info
-             --scheduler celery.beat.PersistentScheduler
-             --schedule=/var/lib/celery/schedule"
+    command: celery -A app.workers.celery_app beat --loglevel=info --scheduler celery.beat.PersistentScheduler --schedule=/var/lib/celery/schedule
+    user: root
     env_file: .env
     environment:
       - DATABASE_URL=mysql+aiomysql://${MYSQL_USER}:${MYSQL_PASSWORD}@db:3306/${MYSQL_DATABASE}
