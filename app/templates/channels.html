@@ -44,10 +44,118 @@
         </div>
     </div>
 </div>
+
+<!-- Modal OAuth Setup -->
+<div class="modal" id="oauth-modal" style="display:none">
+    <div class="modal-content" style="max-width:560px">
+        <div class="modal-header">
+            <h3>🔑 OAuth Setup — <span id="oauth-channel-name"></span></h3>
+            <button class="btn-close" onclick="closeModal('oauth-modal')">✕</button>
+        </div>
+        <div class="modal-body" id="oauth-modal-body">
+            <div class="loading">Memuat authorization URL...</div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
+<style>
+.oauth-step {
+    background: var(--color-surface);
+    border: 1px solid var(--color-hairline);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 12px;
+}
+.oauth-step-num {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--color-steel);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 6px;
+}
+.oauth-step h4 {
+    font-size: 14px;
+    font-weight: 600;
+    margin: 0 0 8px 0;
+    color: var(--color-ink);
+}
+.oauth-step p {
+    font-size: 13px;
+    color: var(--color-steel);
+    margin: 0 0 10px 0;
+    line-height: 1.5;
+}
+.oauth-url-box {
+    background: var(--color-canvas);
+    border: 1px solid var(--color-hairline);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 11px;
+    word-break: break-all;
+    color: var(--color-charcoal);
+    margin-bottom: 10px;
+    font-family: monospace;
+}
+.btn-google {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: #4285F4;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 20px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+    transition: background 0.2s;
+    width: 100%;
+    justify-content: center;
+}
+.btn-google:hover { background: #3367d6; }
+.callback-input-wrap {
+    display: flex;
+    gap: 8px;
+    align-items: stretch;
+}
+.callback-input-wrap input {
+    flex: 1;
+}
+.oauth-success {
+    text-align: center;
+    padding: 20px;
+}
+.oauth-success .success-icon {
+    font-size: 48px;
+    margin-bottom: 12px;
+}
+.oauth-success h4 {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--color-ink);
+    margin-bottom: 6px;
+}
+.oauth-success p {
+    font-size: 13px;
+    color: var(--color-steel);
+}
+.oauth-error {
+    background: #fef2f2;
+    border: 1px solid #fee2e2;
+    border-radius: 8px;
+    padding: 12px;
+    font-size: 13px;
+    color: #d45656;
+}
+</style>
 <script>
+let _oauthChannelId = null;
+let _oauthState = null;
+
 async function loadChannels() {
     const res = await fetch('/api/channels');
     const channels = await res.json();
@@ -63,7 +171,6 @@ function renderChannels(channels) {
 
     grid.innerHTML = channels.map(ch => {
         const genreClass = 'genre-' + (ch.genre || 'other').toLowerCase();
-        
         const trustBadge = ch.trust_level === 'TRUSTED' ? 'badge-green' : 'badge-yellow';
         const activeBadge = ch.is_active ? 'badge-green' : 'badge-gray';
         const authBadge = ch.auth_status === 'VALID' ? 'badge-green' : ch.auth_status === 'REVOKED' ? 'badge-red' : 'badge-yellow';
@@ -80,7 +187,7 @@ function renderChannels(channels) {
                 <div>OAuth Status: <span class="badge ${authBadge}">${ch.auth_status || 'N/A'}</span></div>
             </div>
             <div class="channel-actions">
-                <a href="/auth/youtube/${ch.id}" class="btn btn-xs btn-primary">🔑 OAuth Setup</a>
+                <button class="btn btn-xs btn-primary" onclick="openOAuth(${ch.id}, '${ch.channel_name}')">🔑 OAuth Setup</button>
                 <button class="btn btn-xs btn-tertiary"
                     onclick="toggleTrust(${ch.id}, '${ch.trust_level}')">
                     ${ch.trust_level === 'TRUSTED' ? '↓ Set NEW' : '↑ Set TRUSTED'}
@@ -95,6 +202,118 @@ function renderChannels(channels) {
     }).join('');
 }
 
+/* ── OAuth Modal Flow ─────────────────────────────────────── */
+async function openOAuth(channelId, channelName) {
+    _oauthChannelId = channelId;
+    document.getElementById('oauth-channel-name').textContent = channelName;
+    document.getElementById('oauth-modal-body').innerHTML = '<div class="loading">Memuat authorization URL...</div>';
+    document.getElementById('oauth-modal').style.display = 'flex';
+
+    try {
+        const res = await fetch(`/auth/youtube/${channelId}`);
+        if (!res.ok) {
+            const err = await res.json();
+            showOAuthError(err.detail || 'Gagal memuat authorization URL');
+            return;
+        }
+        const data = await res.json();
+        renderOAuthSteps(data);
+    } catch(e) {
+        showOAuthError('Network error: ' + e.message);
+    }
+}
+
+function renderOAuthSteps(data) {
+    document.getElementById('oauth-modal-body').innerHTML = `
+        <div class="oauth-step">
+            <div class="oauth-step-num">Langkah 1 dari 3</div>
+            <h4>🌐 Buka Google untuk Authorize</h4>
+            <p>Klik tombol di bawah untuk membuka halaman persetujuan Google. Login dengan akun YouTube channel <strong>${data.channel_name}</strong>.</p>
+            <a href="${data.authorization_url}" target="_blank" class="btn-google" id="google-auth-btn">
+                <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#fff" d="M9 3.48c1.69 0 2.83.73 3.48 1.34l2.54-2.48C13.46.89 11.43 0 9 0 5.48 0 2.44 2.02.96 4.96l2.91 2.26C4.6 5.05 6.62 3.48 9 3.48z"/><path fill="#fff" d="M17.64 9.2c0-.74-.06-1.28-.19-1.84H9v3.34h4.96c-.1.83-.64 2.08-1.84 2.92l2.84 2.2c1.7-1.57 2.68-3.88 2.68-6.62z"/><path fill="#fff" d="M3.88 10.78A5.54 5.54 0 0 1 3.58 9c0-.62.11-1.22.29-1.78L.96 4.96A9.008 9.008 0 0 0 0 9c0 1.45.35 2.82.96 4.04l2.92-2.26z"/><path fill="#fff" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.84-2.2c-.76.53-1.78.9-3.12.9-2.38 0-4.4-1.57-5.12-3.74L.97 13.04C2.45 15.98 5.48 18 9 18z"/></svg>
+                Authorize dengan Google
+            </a>
+        </div>
+
+        <div class="oauth-step">
+            <div class="oauth-step-num">Langkah 2 dari 3</div>
+            <h4>📋 Paste Callback URL</h4>
+            <p>Setelah authorize, Google akan redirect ke URL yang dimulai dengan <code>https://ytagent.my.id/auth/youtube/...</code> — copy URL tersebut dari address bar browser dan paste di sini:</p>
+            <div class="callback-input-wrap">
+                <input type="text" id="callback-url-input" class="form-input"
+                    placeholder="https://ytagent.my.id/auth/youtube/${data.channel_id}/callback?code=...">
+                <button class="btn btn-primary" onclick="submitCallback()">Simpan</button>
+            </div>
+        </div>
+
+        <div id="oauth-result-step" class="oauth-step" style="display:none">
+            <div class="oauth-step-num">Langkah 3 dari 3</div>
+            <div id="oauth-result-content"></div>
+        </div>
+    `;
+}
+
+async function submitCallback() {
+    const rawUrl = document.getElementById('callback-url-input').value.trim();
+    if (!rawUrl) { alert('Paste callback URL dulu'); return; }
+
+    let url;
+    try {
+        url = new URL(rawUrl);
+    } catch(e) {
+        alert('URL tidak valid. Pastikan Anda paste URL lengkap dari address bar.');
+        return;
+    }
+
+    const code = url.searchParams.get('code');
+    const state = url.searchParams.get('state');
+
+    if (!code || !state) {
+        alert('URL tidak mengandung code atau state. Pastikan Anda copy URL lengkap setelah authorize di Google.');
+        return;
+    }
+
+    const resultStep = document.getElementById('oauth-result-step');
+    const resultContent = document.getElementById('oauth-result-content');
+    resultStep.style.display = 'block';
+    resultContent.innerHTML = '<div class="loading">Menyimpan token...</div>';
+
+    try {
+        const callbackUrl = `/auth/youtube/${_oauthChannelId}/callback?code=${encodeURIComponent(code)}&state=${encodeURIComponent(state)}`;
+        const res = await fetch(callbackUrl);
+        const data = await res.json();
+
+        if (!res.ok) {
+            resultContent.innerHTML = `<div class="oauth-error">❌ ${data.detail || 'Token exchange gagal'}</div>`;
+            return;
+        }
+
+        resultContent.innerHTML = `
+            <div class="oauth-success">
+                <div class="success-icon">✅</div>
+                <h4>Channel Berhasil Diotorisasi!</h4>
+                <p>Token tersimpan. Channel siap digunakan untuk upload otomatis.</p>
+            </div>
+        `;
+
+        // Refresh channel list setelah delay singkat
+        setTimeout(() => { loadChannels(); }, 1500);
+
+    } catch(e) {
+        resultContent.innerHTML = `<div class="oauth-error">❌ Network error: ${e.message}</div>`;
+    }
+}
+
+function showOAuthError(msg) {
+    document.getElementById('oauth-modal-body').innerHTML = `
+        <div class="oauth-error">❌ ${msg}</div>
+        <p style="font-size:13px;color:var(--color-steel);margin-top:12px;">
+            Pastikan <code>client_secrets.json</code> atau env var <code>GOOGLE_CLIENT_ID</code> sudah dikonfigurasi di server.
+        </p>
+    `;
+}
+
+/* ── Channel CRUD ─────────────────────────────────────────── */
 async function toggleTrust(id, current) {
     const newTrust = current === 'TRUSTED' ? 'NEW' : 'TRUSTED';
     if (!confirm(`Ubah trust level ke ${newTrust}?`)) return;
@@ -144,3 +363,4 @@ async function createChannel() {
 loadChannels();
 </script>
 {% endblock %}
+
