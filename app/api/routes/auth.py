@@ -115,7 +115,15 @@ async def start_oauth(
     if not channel:
         raise HTTPException(status_code=404, detail=f"Channel {channel_id} tidak ditemukan")
 
-    redirect_uri = str(request.url_for("oauth_callback", channel_id=channel_id))
+    # Bangun redirect_uri dengan benar meskipun di belakang reverse proxy (Nginx + SSL)
+    # request.url_for() membaca base_url dari request yang masuk ke container,
+    # yang biasanya http:// (internal) meskipun user mengakses via https://.
+    # Gunakan APP_BASE_URL dari .env jika diset, agar redirect_uri selalu https:// di production.
+    callback_path = request.url_for("oauth_callback", channel_id=channel_id).path
+    if settings.app_base_url:
+        redirect_uri = f"{settings.app_base_url.rstrip('/')}{callback_path}"
+    else:
+        redirect_uri = str(request.url_for("oauth_callback", channel_id=channel_id))
 
     client_config = _get_client_config(redirect_uri)
     flow = Flow.from_client_config(
@@ -167,7 +175,12 @@ async def oauth_callback(
     if not flow:
         raise HTTPException(status_code=400, detail="State tidak valid atau expired")
 
-    redirect_uri = str(request.url_for("oauth_callback", channel_id=channel_id))
+    # Harus identik dengan redirect_uri yang dipakai di start_oauth
+    callback_path = request.url_for("oauth_callback", channel_id=channel_id).path
+    if settings.app_base_url:
+        redirect_uri = f"{settings.app_base_url.rstrip('/')}{callback_path}"
+    else:
+        redirect_uri = str(request.url_for("oauth_callback", channel_id=channel_id))
     flow.redirect_uri = redirect_uri
 
     try:

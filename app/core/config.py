@@ -50,6 +50,10 @@ class Settings(BaseSettings):
     secret_key: str
     dashboard_username: str = "admin"
     dashboard_password: str
+    # Base URL yang dipakai untuk construct absolute URLs (redirect_uri OAuth, dll)
+    # Wajib diset di production jika di belakang reverse proxy
+    # Contoh: https://ytagent.my.id
+    app_base_url: str | None = None
 
     # Logging
     log_level: str = "INFO"
