@@ -727,3 +727,69 @@ label {
         grid-template-columns: 1fr 1fr;
     }
 }
+
+/* ===================================================
+   Dark Mode Override
+   =================================================== */
+body.dark-mode {
+    --color-primary: #f7f8fa;
+    --color-on-primary: #0a0a0a;
+    --color-canvas: #121214;
+    --color-surface: #0a0a0c;
+    --color-surface-soft: #1a1a1f;
+    --color-hairline: #2d2d34;
+    --color-hairline-soft: #232328;
+    --color-ink: #f7f8fa;
+    --color-charcoal: #e5e7eb;
+    --color-slate: #9ca3af;
+    --color-steel: #8e8e93;
+    --color-stone: #5f5f5f;
+    --color-muted: #4b5563;
+    
+    background: var(--color-surface);
+    color: var(--color-charcoal);
+}
+
+body.dark-mode .navbar {
+    background: var(--color-canvas);
+}
+body.dark-mode .card,
+body.dark-mode .modal-content,
+body.dark-mode .eval-card,
+body.dark-mode .pattern-item-card {
+    background: var(--color-canvas);
+}
+body.dark-mode .pattern-item-card.active-p {
+    background: #0f241a;
+    border-color: #10b981;
+}
+body.dark-mode .table th {
+    background: var(--color-surface-soft);
+    color: var(--color-ink);
+}
+body.dark-mode .form-input,
+body.dark-mode .form-textarea,
+body.dark-mode select.form-input {
+    background: var(--color-surface-soft);
+    color: var(--color-ink);
+    border-color: var(--color-hairline);
+}
+body.dark-mode .btn-tertiary {
+    background: var(--color-surface-soft);
+    color: var(--color-ink);
+}
+body.dark-mode pre,
+body.dark-mode code {
+    background: var(--color-surface-soft) !important;
+    color: #e5e7eb !important;
+}
+body.dark-mode .score-badge {
+    background: var(--color-surface-soft);
+}
+body.dark-mode .oauth-step {
+    background: var(--color-canvas);
+}
+body.dark-mode .eval-metrics-grid .metric-item {
+    background: var(--color-surface-soft);
+}
+

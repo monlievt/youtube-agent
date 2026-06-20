@@ -26,8 +26,7 @@
             <button class="btn-close" onclick="closeModal('add-channel-modal')">✕</button>
         </div>
         <div class="modal-body">
-            <label>Nama Channel *</label>
-            <input type="text" id="new-channel-name" class="form-input" placeholder="channel_lofi_vibes" maxlength="100">
+            <input type="hidden" id="new-channel-name" value="Draft Channel">
             <label>Genre *</label>
             <select id="new-channel-genre" class="form-input">
                 <option value="lofi">Lofi</option>
@@ -43,7 +42,7 @@
             </select>
         </div>
         <div class="modal-footer">
-            <button class="btn btn-primary" onclick="createChannel()">Buat Channel</button>
+            <button class="btn btn-primary" onclick="createChannel()">Hubungkan OAuth</button>
             <button class="btn btn-tertiary" onclick="closeModal('add-channel-modal')">Batal</button>
         </div>
     </div>
@@ -380,19 +379,30 @@ function closeModal(id) {
 }
 
 async function createChannel() {
-    const name = document.getElementById('new-channel-name').value.trim();
+    const name = document.getElementById('new-channel-name').value;
     const genre = document.getElementById('new-channel-genre').value;
     const trust = document.getElementById('new-channel-trust').value;
 
-    if (!name) { alert('Nama channel wajib diisi'); return; }
-
-    await fetch('/api/channels', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({channel_name: name, genre, trust_level: trust})
-    });
-    closeModal('add-channel-modal');
-    loadChannels();
+    try {
+        const res = await fetch('/api/channels', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({channel_name: name, genre, trust_level: trust})
+        });
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.detail || 'Gagal membuat draft channel');
+        }
+        
+        const channel = await res.json();
+        closeModal('add-channel-modal');
+        loadChannels();
+        
+        // Langsung buka modal OAuth Setup untuk channel baru
+        openOAuth(channel.id, 'Otorisasi Channel Baru');
+    } catch(e) {
+        alert('Gagal: ' + e.message);
+    }
 }
 
 checkOAuthResult();

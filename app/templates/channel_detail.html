@@ -146,7 +146,10 @@
 <!-- Tab Content: Queue -->
 <div id="tab-queue" class="tab-content" style="display: none;">
     <div class="card">
-        <h3 style="margin-top: 0; margin-bottom: 16px;">📋 Antrean Unggahan Lokal (Queue)</h3>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+            <h3 style="margin: 0;">📋 Antrean Unggahan Lokal (Queue)</h3>
+            <button class="btn btn-primary btn-xs" onclick="triggerManualScan()" style="background: var(--color-success-text); border-color: var(--color-success-text); color: white;">🔍 Pindai File Baru (Scan NFS)</button>
+        </div>
         <div class="table-container">
             <table class="table">
                 <thead>
@@ -268,7 +271,13 @@ async function loadChannelDetails() {
         const ch = await res.json();
         
         document.getElementById('channel-name-title').textContent = ch.channel_name;
-        document.getElementById('channel-genre-subtitle').innerHTML = `Genre: <strong style="text-transform:capitalize;">${ch.genre}</strong> | Trust Level: <span class="badge badge-purple" style="font-size:10px;padding:2px 6px;">${ch.trust_level}</span><br><small style="color:var(--color-steel);margin-top:4px;display:inline-block;">📁 Path Scanner: <code>${ch.scanner_path || '—'}</code></small>`;
+        document.getElementById('channel-genre-subtitle').innerHTML = `
+            Genre: <strong style="text-transform:capitalize;">${ch.genre}</strong> | Trust Level: <span class="badge badge-purple" style="font-size:10px;padding:2px 6px;">${ch.trust_level}</span><br>
+            <small style="color:var(--color-steel);margin-top:4px;display:inline-block;">
+                📁 Path Scanner: <code>${ch.scanner_path || '—'}</code>
+                <button class="btn btn-xs btn-tertiary" onclick="editScannerFolder('${ch.folder_name || ch.channel_name}')" style="padding: 1px 4px; font-size: 10px; border-radius: 4px; margin-left: 4px; display: inline-flex; align-items: center; gap: 2px;">✏️ Edit Folder</button>
+            </small>
+        `;
         
         // Avatar Photo
         const avatarImg = document.getElementById('channel-avatar');
@@ -695,6 +704,49 @@ async function syncChannelData() {
         btn.disabled = false;
         btn.textContent = oldText;
         alert('Gagal: ' + e.message);
+    }
+}
+
+async function editScannerFolder(currentFolder) {
+    const newFolder = prompt("Masukkan nama subfolder scanner relatif di dalam NFS storage (misal: Video_Ready/tokyo_lofi atau tokyo_lofi):", currentFolder);
+    if (newFolder === null) return; // Batal
+    
+    try {
+        const res = await fetch(`/api/channels/${channelId}/update-folder`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ folder_name: newFolder })
+        });
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.detail || 'Gagal mengubah folder');
+        }
+        alert("Folder scanner berhasil diubah!");
+        await initPage();
+    } catch(e) {
+        alert("Gagal: " + e.message);
+    }
+}
+
+async function triggerManualScan() {
+    if (!confirm("Apakah Anda yakin ingin memicu pemindaian file video baru secara manual di folder scanner NFS?")) return;
+    
+    try {
+        const res = await fetch(`/api/channels/${channelId}/scan`, {
+            method: 'POST'
+        });
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.detail || 'Gagal memicu scan');
+        }
+        alert("Perintah pemindaian video baru berhasil dikirim ke background worker! Hasil scan (video baru masuk antrean) akan terupdate otomatis dalam beberapa saat.");
+        
+        // Refresh antrean setelah 3 detik
+        setTimeout(async () => {
+            await loadQueue();
+        }, 3000);
+    } catch(e) {
+        alert("Gagal memicu scan: " + e.message);
     }
 }
 

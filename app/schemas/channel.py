@@ -9,11 +9,12 @@ from pydantic import BaseModel, Field
 
 
 class ChannelCreate(BaseModel):
-    channel_name: str = Field(max_length=100)
+    channel_name: str = Field(max_length=100, default="Draft Channel")
     genre: str = Field(max_length=50)
     youtube_channel_id: str | None = None
     gcp_project_id: str = "project_default"
     trust_level: Literal["NEW", "TRUSTED"] = "NEW"
+    folder_name: str | None = None
 
 
 class ChannelResponse(BaseModel):
@@ -28,6 +29,7 @@ class ChannelResponse(BaseModel):
     youtube_views: int = 0
     youtube_video_count: int = 0
     youtube_videos_cache: str | None = None
+    folder_name: str | None = None
     scanner_path: str | None = None
     auth_status: str | None = None
     created_at: datetime
@@ -39,3 +41,4 @@ class ChannelUpdate(BaseModel):
     trust_level: Literal["NEW", "TRUSTED"] | None = None
     is_active: bool | None = None
     youtube_channel_id: str | None = None
+    folder_name: str | None = None

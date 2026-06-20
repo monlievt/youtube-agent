@@ -2,7 +2,62 @@
 {% block title %}Queue Monitor{% endblock %}
 
 {% block content %}
-<div class="page-header">
+<!-- Grid Dashboard Widgets -->
+<div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); margin-bottom: 24px;">
+    <!-- Metrik Global Network -->
+    <div class="card" style="margin-bottom: 0;">
+        <h3 style="margin-top: 0; margin-bottom: 12px; font-size: 15px; color: var(--color-ink);">🌐 Global Network</h3>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 8px;">
+            <div>
+                <small style="color: var(--color-steel); font-size: 11px; text-transform: uppercase;">Subscribers</small>
+                <div style="font-size: 18px; font-weight: 700; color: var(--color-primary);" id="net-subs">0</div>
+            </div>
+            <div>
+                <small style="color: var(--color-steel); font-size: 11px; text-transform: uppercase;">Views</small>
+                <div style="font-size: 18px; font-weight: 700; color: var(--color-primary);" id="net-views">0</div>
+            </div>
+        </div>
+        <div style="margin-top: 10px; border-top: 1px solid var(--color-hairline); padding-top: 8px;">
+            <small style="color: var(--color-steel); font-size: 11px; text-transform: uppercase;">Total Video Terbit:</small> <strong id="net-videos">0</strong>
+        </div>
+    </div>
+
+    <!-- YouTube API Quota Tracker -->
+    <div class="card" style="margin-bottom: 0;">
+        <h3 style="margin-top: 0; margin-bottom: 8px; font-size: 15px; color: var(--color-ink);">🔑 GCP Quota API</h3>
+        <p style="font-size: 11px; color: var(--color-steel); margin-bottom: 10px;">Batas harian: 10.000 unit per project GCP.</p>
+        <div class="progress-bar-container" style="background: var(--color-surface-soft); border-radius: 999px; height: 8px; overflow: hidden; margin-bottom: 6px;">
+            <div id="quota-fill" style="background: var(--color-info-text); height: 100%; width: 0%;"></div>
+        </div>
+        <div style="display: flex; justify-content: space-between; font-size: 12px; font-weight: 500;">
+            <span id="quota-text">0 / 10.000 units</span>
+            <span id="quota-pct">0%</span>
+        </div>
+    </div>
+
+    <!-- NFS Storage OMV NAS -->
+    <div class="card" style="margin-bottom: 0;">
+        <h3 style="margin-top: 0; margin-bottom: 8px; font-size: 15px; color: var(--color-ink);">📁 NFS Disk Storage</h3>
+        <p style="font-size: 11px; color: var(--color-steel); margin-bottom: 10px;">Kapasitas penyimpanan server staging video.</p>
+        <div class="progress-bar-container" style="background: var(--color-surface-soft); border-radius: 999px; height: 8px; overflow: hidden; margin-bottom: 6px;">
+            <div id="storage-fill" style="background: var(--color-success-text); height: 100%; width: 0%;"></div>
+        </div>
+        <div style="display: flex; justify-content: space-between; font-size: 12px; font-weight: 500;">
+            <span id="storage-text">0 GB / 0 GB</span>
+            <span id="storage-pct">0%</span>
+        </div>
+    </div>
+
+    <!-- Recent System Activities -->
+    <div class="card" style="margin-bottom: 0; max-height: 140px; overflow-y: auto;">
+        <h3 style="margin-top: 0; margin-bottom: 8px; font-size: 15px; color: var(--color-ink);">📜 Aktivitas Terbaru</h3>
+        <div id="recent-logs-list" style="display: flex; flex-direction: column; gap: 6px; font-size: 11px;">
+            <div style="color: var(--color-steel);">Memuat aktivitas...</div>
+        </div>
+    </div>
+</div>
+
+<div class="page-header" style="margin-top: 32px;">
     <div>
         <h1>📋 Queue Monitor</h1>
         <p class="page-desc">Pantau dan kelola antrean unggahan video otomatis.</p>
@@ -274,12 +329,69 @@ document.getElementById('override-title')?.addEventListener('input', function() 
     document.getElementById('title-count').textContent = `${this.value.length}/100`;
 });
 
+async function loadDashboardStats() {
+    try {
+        const res = await fetch('/api/dashboard/stats');
+        if (!res.ok) return;
+        const data = await res.json();
+        
+        // 1. Global Metrics
+        document.getElementById('net-subs').textContent = data.global_metrics.subscribers.toLocaleString('id-ID');
+        document.getElementById('net-views').textContent = data.global_metrics.views.toLocaleString('id-ID');
+        document.getElementById('net-videos').textContent = data.global_metrics.videos.toLocaleString('id-ID');
+        
+        // 2. Quota Bar
+        const qUsed = data.quota.used;
+        const qLimit = data.quota.limit;
+        const qPct = data.quota.percentage;
+        document.getElementById('quota-fill').style.width = qPct + '%';
+        document.getElementById('quota-text').textContent = `${qUsed.toLocaleString('id-ID')} / ${qLimit.toLocaleString('id-ID')} unit`;
+        document.getElementById('quota-pct').textContent = qPct + '%';
+        
+        const quotaFillEl = document.getElementById('quota-fill');
+        if (qPct > 80) quotaFillEl.style.backgroundColor = 'var(--color-error-text)';
+        else if (qPct > 55) quotaFillEl.style.backgroundColor = 'var(--color-warning-text)';
+        else quotaFillEl.style.backgroundColor = 'var(--color-info-text)';
+        
+        // 3. Storage Bar
+        const sUsed = data.storage.used_gb;
+        const sTotal = data.storage.total_gb;
+        const sPct = data.storage.percentage_used;
+        document.getElementById('storage-fill').style.width = sPct + '%';
+        document.getElementById('storage-text').textContent = `${sUsed} GB / ${sTotal} GB`;
+        document.getElementById('storage-pct').textContent = sPct + '%';
+        
+        const storageFillEl = document.getElementById('storage-fill');
+        if (sPct > 90) storageFillEl.style.backgroundColor = 'var(--color-error-text)';
+        else if (sPct > 75) storageFillEl.style.backgroundColor = 'var(--color-warning-text)';
+        else storageFillEl.style.backgroundColor = 'var(--color-success-text)';
+        
+        // 4. Recent logs
+        const logsContainer = document.getElementById('recent-logs-list');
+        if (data.recent_activities.length === 0) {
+            logsContainer.innerHTML = '<div style="color: var(--color-steel);">Belum ada aktivitas tercatat.</div>';
+        } else {
+            logsContainer.innerHTML = data.recent_activities.map(l => {
+                const dateStr = new Date(l.created_at).toLocaleTimeString('id-ID', {hour: '2-digit', minute:'2-digit'});
+                return `<div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--color-hairline-soft); padding-bottom: 4px; padding-top: 4px; gap: 8px;">
+                    <span style="font-weight: 500; color: var(--color-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 140px;">${l.action}</span>
+                    <span style="color: var(--color-steel); font-size: 10px; text-align: right;">${dateStr} (${l.actor})</span>
+                </div>`;
+            }).join('');
+        }
+        
+    } catch(e) {
+        console.error('Gagal load dashboard stats:', e);
+    }
+}
+
 // Init
 async function init() {
     await loadChannels();
     loadQueue();
+    await loadDashboardStats();
 }
 init();
-setInterval(() => { loadChannels(); loadQueue(); }, 30000);
+setInterval(() => { loadChannels(); loadQueue(); loadDashboardStats(); }, 30000);
 </script>
 {% endblock %}

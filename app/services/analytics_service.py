@@ -148,6 +148,8 @@ class AnalyticsService:
 
         # Update channel model
         channel.youtube_channel_id = yt_channel_id
+        if yt_title:
+            channel.channel_name = yt_title
         channel.youtube_thumbnail_url = thumbnail_url
         channel.youtube_subscribers = subscribers
         channel.youtube_views = views

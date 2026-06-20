@@ -32,6 +32,7 @@ class Channel(Base):
     youtube_views: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
     youtube_video_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     youtube_videos_cache: Mapped[str | None] = mapped_column(Text, nullable=True)
+    folder_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), onupdate=func.now()
@@ -75,7 +76,8 @@ class Channel(Base):
         from app.core.config import get_settings
         settings = get_settings()
         import os
-        return os.path.join(settings.nfs_videos_path, self.channel_name)
+        subfolder = self.folder_name if self.folder_name else self.channel_name
+        return os.path.join(settings.nfs_videos_path, subfolder)
 
 
 class ChannelCredential(Base):

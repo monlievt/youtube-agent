@@ -34,18 +34,25 @@ async def create_channel(
     data: ChannelCreate, db: DBSession, user: CurrentUser
 ) -> Channel:
     repo = ChannelRepository(db)
+    import uuid
+
+    # Jika nama channel adalah default "Draft Channel" atau kosong, buat nama draft unik
+    channel_name = data.channel_name
+    if not channel_name or channel_name == "Draft Channel":
+        channel_name = f"Draft_{data.genre}_{uuid.uuid4().hex[:8]}"
 
     # Cek nama duplikat
-    existing = await repo.get_by_name(data.channel_name)
+    existing = await repo.get_by_name(channel_name)
     if existing:
-        raise HTTPException(status_code=409, detail=f"Channel '{data.channel_name}' sudah ada")
+        raise HTTPException(status_code=409, detail=f"Channel '{channel_name}' sudah ada")
 
     channel = Channel(
-        channel_name=data.channel_name,
+        channel_name=channel_name,
         genre=data.genre,
         youtube_channel_id=data.youtube_channel_id,
         gcp_project_id=data.gcp_project_id,
         trust_level=data.trust_level,
+        folder_name=data.folder_name,
     )
     channel = await repo.create(channel)
 
@@ -54,7 +61,7 @@ async def create_channel(
         action="channel_created",
         resource_type="channel",
         resource_id=str(channel.id),
-        details={"channel_name": data.channel_name, "genre": data.genre},
+        details={"channel_name": channel_name, "genre": data.genre},
     )
 
     log.info(
@@ -350,5 +357,56 @@ async def get_pattern_analytics(channel_id: int, db: DBSession, user: CurrentUse
             })
 
     return result_data
+
+
+class FolderUpdateRequest(BaseModel):
+    folder_name: str | None = None
+
+
+@router.post("/{channel_id}/update-folder")
+async def update_channel_folder(channel_id: int, data: FolderUpdateRequest, db: DBSession, user: CurrentUser):
+    """Update custom folder watch path for a channel."""
+    repo = ChannelRepository(db)
+    channel = await repo.get_by_id(channel_id)
+    if not channel:
+        raise HTTPException(status_code=404, detail="Channel tidak ditemukan")
+    
+    # Simpan folder_name kustom
+    channel.folder_name = data.folder_name.strip() if data.folder_name else None
+    await db.flush()
+    
+    await repo.write_audit_log(
+        actor=user,
+        action="channel_folder_updated",
+        resource_type="channel",
+        resource_id=str(channel_id),
+        details={"folder_name": channel.folder_name},
+    )
+    
+    return {"status": "success", "folder_name": channel.folder_name, "scanner_path": channel.scanner_path}
+
+
+@router.post("/{channel_id}/scan")
+async def trigger_channel_folder_scan(channel_id: int, db: DBSession, user: CurrentUser):
+    """Trigger manual watch folder scan for a channel."""
+    from app.workers.crawler_tasks import scan_omv_storage
+    
+    repo = ChannelRepository(db)
+    channel = await repo.get_by_id(channel_id)
+    if not channel:
+        raise HTTPException(status_code=404, detail="Channel tidak ditemukan")
+        
+    # Jalankan background task pemindaian NFS
+    scan_omv_storage.delay()
+    
+    await repo.write_audit_log(
+        actor=user,
+        action="channel_folder_scan_triggered",
+        resource_type="channel",
+        resource_id=str(channel_id),
+        details={"channel_name": channel.channel_name},
+    )
+    
+    return {"status": "scan_triggered", "channel_name": channel.channel_name}
 
 

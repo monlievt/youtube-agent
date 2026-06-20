@@ -107,11 +107,13 @@ app.mount("/static", StaticFiles(directory="app/static"), name="static")
 templates = Jinja2Templates(directory="app/templates")
 
 # ── Routers ───────────────────────────────────────────────────
+from app.api.routes import dashboard
 app.include_router(health.router)
 app.include_router(auth.router)
 app.include_router(channels.router)
 app.include_router(queue.router)
 app.include_router(evaluations.router)
+app.include_router(dashboard.router)
 
 
 # ── Login & Auth Routes ────────────────────────────────────────

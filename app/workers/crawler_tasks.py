@@ -70,7 +70,8 @@ def scan_omv_storage(self) -> dict:
             channels = await channel_repo.get_all_active()
 
             for channel in channels:
-                channel_dir = nfs_path / channel.channel_name
+                subfolder = channel.folder_name if channel.folder_name else channel.channel_name
+                channel_dir = nfs_path / subfolder
                 if not channel_dir.exists():
                     log.info(
                         "channel_dir_not_found",
