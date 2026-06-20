@@ -456,14 +456,16 @@ label {
 }
 
 .channel-card {
-    border-radius: var(--radius-hero); /* 32px corner softening for featured products */
-    padding: 32px;
-    color: var(--color-on-primary);
+    border-radius: var(--radius-lg);
+    padding: 24px;
+    background: var(--color-canvas);
+    border: 1px solid var(--color-hairline);
+    color: var(--color-ink);
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    min-height: 260px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+    min-height: 220px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02);
     position: relative;
     overflow: hidden;
 }
@@ -472,7 +474,7 @@ label {
     content: '';
     position: absolute;
     inset: 0;
-    background: rgba(0,0,0,0.1);
+    background: rgba(0,0,0,0.03);
     opacity: 0;
     transition: opacity 0.2s ease;
 }
@@ -481,11 +483,16 @@ label {
     opacity: 1;
 }
 
-.channel-card.genre-lofi { background: var(--gradient-lofi); }
-.channel-card.genre-phonk { background: var(--gradient-phonk); }
-.channel-card.genre-jazz { background: var(--gradient-jazz); }
-.channel-card.genre-ambient { background: var(--gradient-ambient); }
-.channel-card.genre-other { background: var(--gradient-other); }
+.channel-card.genre-lofi { border-top: 6px solid #ff5530; }
+.channel-card.genre-phonk { border-top: 6px solid #ea5ec1; }
+.channel-card.genre-jazz { border-top: 6px solid #a855f7; }
+.channel-card.genre-ambient { border-top: 6px solid #1456f0; }
+.channel-card.genre-other { border-top: 6px solid #45515e; }
+.channel-card.genre-gaming { border-top: 6px solid #10b981; }
+.channel-card.genre-tech { border-top: 6px solid #3b82f6; }
+.channel-card.genre-education { border-top: 6px solid #f59e0b; }
+.channel-card.genre-entertainment { border-top: 6px solid #ef4444; }
+.channel-card.genre-vlog { border-top: 6px solid #ec4899; }
 
 .channel-card-header {
     display: flex;
@@ -513,7 +520,7 @@ label {
 }
 
 .channel-meta strong {
-    color: var(--color-on-primary);
+    color: var(--color-ink);
 }
 
 .channel-actions { 
