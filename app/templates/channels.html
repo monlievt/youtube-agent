@@ -169,6 +169,9 @@
     font-size: 13px;
     color: #d45656;
 }
+.channel-card::before {
+    pointer-events: none !important;
+}
 </style>
 <script>
 let _oauthChannelId = null;
@@ -250,7 +253,7 @@ function renderChannels(channels) {
                 </div>
             </div>
             
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; position: relative; z-index: 3;">
                 <a href="/channels/${ch.id}" class="btn btn-xs btn-primary" style="text-decoration:none; text-align: center; justify-content: center; font-weight: 500; height: 28px; line-height: 16px;">📊 Detail</a>
                 <button class="btn btn-xs btn-tertiary" onclick="openOAuth(${ch.id}, '${ch.channel_name}')" style="justify-content: center; font-weight: 500; height: 28px;">🔑 OAuth Setup</button>
                 <button class="btn btn-xs btn-tertiary" onclick="toggleTrust(${ch.id}, '${ch.trust_level}')" style="justify-content: center; font-size: 10px; height: 28px;">
