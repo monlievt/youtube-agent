@@ -7,7 +7,7 @@ from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.models.channel import Channel, ChannelCredential
+from app.models.channel import Channel, ChannelCredential, MetadataPattern
 from app.models.system import SystemAuditLog
 
 
@@ -96,6 +96,32 @@ class ChannelRepository:
             .where(ChannelCredential.channel_id == channel_id)
             .values(auth_status=status)
         )
+
+    # ── Metadata Patterns ────────────────────────────────────────
+
+    async def get_patterns(self, channel_id: int) -> list[MetadataPattern]:
+        result = await self._session.execute(
+            select(MetadataPattern)
+            .where(MetadataPattern.channel_id == channel_id)
+            .order_by(MetadataPattern.created_at)
+        )
+        return list(result.scalars().all())
+
+    async def get_pattern_by_id(self, pattern_id: int) -> MetadataPattern | None:
+        result = await self._session.execute(
+            select(MetadataPattern).where(MetadataPattern.id == pattern_id)
+        )
+        return result.scalar_one_or_none()
+
+    async def create_pattern(self, pattern: MetadataPattern) -> MetadataPattern:
+        self._session.add(pattern)
+        await self._session.flush()
+        await self._session.refresh(pattern)
+        return pattern
+
+    async def delete_pattern(self, pattern: MetadataPattern) -> None:
+        await self._session.delete(pattern)
+        await self._session.flush()
 
     # ── Audit Log ────────────────────────────────────────────────
 

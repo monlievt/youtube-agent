@@ -44,6 +44,9 @@ class UploadQueue(Base):
     file_checksum_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("file_checksums.id", ondelete="RESTRICT"), nullable=False
     )
+    pattern_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("metadata_patterns.id", ondelete="SET NULL"), nullable=True
+    )
 
     # File paths (relatif dari staging root)
     staging_path: Mapped[str] = mapped_column(String(500), nullable=False)
@@ -84,6 +87,7 @@ class UploadQueue(Base):
     # Relationships
     channel: Mapped["Channel"] = relationship("Channel", back_populates="upload_queue")  # type: ignore[name-defined]
     file_checksum: Mapped["FileChecksum"] = relationship("FileChecksum", back_populates="upload_queue")  # type: ignore[name-defined]
+    metadata_pattern: Mapped["MetadataPattern | None"] = relationship("MetadataPattern")  # type: ignore[name-defined]
     tags: Mapped[list["VideoTag"]] = relationship("VideoTag", back_populates="queue_item", cascade="all, delete-orphan")
     attempts: Mapped[list["UploadAttempt"]] = relationship("UploadAttempt", back_populates="queue_item")
     metadata_history: Mapped[list["MetadataHistory"]] = relationship("MetadataHistory", back_populates="queue_item")  # type: ignore[name-defined]

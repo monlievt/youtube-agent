@@ -40,6 +40,9 @@ class Channel(Base):
     upload_queue: Mapped[list["UploadQueue"]] = relationship(  # type: ignore[name-defined]
         "UploadQueue", back_populates="channel"
     )
+    metadata_patterns: Mapped[list["MetadataPattern"]] = relationship(
+        "MetadataPattern", back_populates="channel", cascade="all, delete-orphan"
+    )
 
     __table_args__ = (
         UniqueConstraint("channel_name", name="uq_channel_name"),
@@ -91,3 +94,22 @@ class ChannelCredential(Base):
     __table_args__ = (
         UniqueConstraint("channel_id", name="uq_channel_credential"),
     )
+
+
+class MetadataPattern(Base):
+    __tablename__ = "metadata_patterns"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    channel_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("channels.id", ondelete="CASCADE"), nullable=False
+    )
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    title_template: Mapped[str] = mapped_column(String(200), nullable=False)
+    description_template: Mapped[str] = mapped_column(Text, nullable=False)
+    tags_template: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+    # Relationships
+    channel: Mapped["Channel"] = relationship("Channel", back_populates="metadata_patterns")
+

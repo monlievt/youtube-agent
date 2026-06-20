@@ -2,7 +2,7 @@
 app/models/__init__.py
 Export semua models agar Alembic bisa detect saat autogenerate.
 """
-from app.models.channel import Channel, ChannelCredential
+from app.models.channel import Channel, ChannelCredential, MetadataPattern
 from app.models.queue import UploadQueue, VideoTag, UploadAttempt
 from app.models.history import MetadataHistory, UploadStateHistory
 from app.models.system import SystemConfig, SystemAuditLog, GcpQuotaTracker
@@ -19,6 +19,7 @@ from app.models.analytics import (
 __all__ = [
     "Channel",
     "ChannelCredential",
+    "MetadataPattern",
     "UploadQueue",
     "VideoTag",
     "UploadAttempt",

@@ -71,6 +71,7 @@ class MetadataService:
     async def generate_for_queue_item(self, queue_item: UploadQueue) -> MetadataOutput:
         """
         Generate metadata AI untuk satu item queue.
+        Menggunakan MetadataPattern jika tersedia dan aktif untuk channel bersangkutan.
         Retry max 2x jika validasi gagal, lalu FAILED_PERMANENT.
         """
         timeout_sec = await self._config_repo.get_int("openrouter_timeout_sec")
@@ -88,8 +89,39 @@ class MetadataService:
         genre = channel.genre if channel else "default"
         filename = queue_item.staging_path.split("/")[-1]
 
-        system_prompt = GENRE_PROMPTS.get(genre.lower(), GENRE_PROMPTS["default"])
-        user_prompt = USER_PROMPT_TEMPLATE.format(genre=genre, filename=filename)
+        # Ambil pola aktif jika ada
+        from app.repositories.channel_repo import ChannelRepository
+        channel_repo = ChannelRepository(self._session)
+        patterns = await channel_repo.get_patterns(queue_item.channel_id)
+        active_pattern = next((p for p in patterns if p.is_active), None)
+
+        if active_pattern:
+            queue_item.pattern_id = active_pattern.id
+            system_prompt = (
+                "Kamu adalah ahli SEO YouTube untuk channel musik. "
+                "Buat metadata video yang sangat menarik dan CTR-oriented berdasarkan instruksi pola kustom dari pengguna."
+            )
+            user_prompt = f"""
+Buatkan metadata YouTube untuk video musik berikut:
+- Genre: {genre}
+- Nama file: {filename}
+- Pola/Aturan Judul: {active_pattern.title_template}
+- Pola/Aturan Deskripsi: {active_pattern.description_template}
+- Tag Tambahan/Pola Tag: {active_pattern.tags_template or "Tidak ada"}
+
+Aturan Penting:
+1. Ikuti pola/aturan judul dan deskripsi di atas dengan sangat ketat dan kreatif.
+2. Pastikan hasil bervariasi dan unik untuk setiap nama file video yang berbeda.
+3. Kembalikan HANYA JSON valid dengan format ini (tidak ada teks lain):
+{{
+  "title": "judul video (max 100 karakter)",
+  "description": "deskripsi video (max 5000 karakter)",
+  "tags": ["tag1", "tag2", "tag3"]
+}}
+"""
+        else:
+            system_prompt = GENRE_PROMPTS.get(genre.lower(), GENRE_PROMPTS["default"])
+            user_prompt = USER_PROMPT_TEMPLATE.format(genre=genre, filename=filename)
 
         max_retries = 2
         last_error: Exception | None = None
@@ -128,6 +160,60 @@ class MetadataService:
             f"Metadata generation gagal setelah {max_retries + 1} percobaan. "
             f"Last error: {last_error}"
         )
+
+    async def generate_test_pattern(
+        self,
+        channel_id: int,
+        title_template: str,
+        description_template: str,
+        tags_template: str | None,
+        filename: str,
+    ) -> MetadataOutput:
+        """Simulasi generate metadata menggunakan pola kustom untuk testing."""
+        from app.repositories.channel_repo import ChannelRepository
+        channel_repo = ChannelRepository(self._session)
+        channel = await channel_repo.get_by_id(channel_id)
+        genre = channel.genre if channel else "default"
+
+        timeout_sec = await self._config_repo.get_int("openrouter_timeout_sec")
+        primary_model = await self._config_repo.get_value("openrouter_primary")
+        fallback_model = await self._config_repo.get_value("openrouter_fallback")
+        last_resort_model = await self._config_repo.get_value("openrouter_last_resort")
+
+        gateway = OpenRouterGateway(
+            model_chain=[primary_model, fallback_model, last_resort_model],
+            timeout_seconds=timeout_sec,
+        )
+
+        system_prompt = (
+            "Kamu adalah ahli SEO YouTube untuk channel musik. "
+            "Buat metadata video yang sangat menarik dan CTR-oriented berdasarkan instruksi pola kustom dari pengguna."
+        )
+
+        user_prompt = f"""
+Buatkan metadata YouTube untuk video musik berikut:
+- Genre: {genre}
+- Nama file: {filename}
+- Pola/Aturan Judul: {title_template}
+- Pola/Aturan Deskripsi: {description_template}
+- Tag Tambahan/Pola Tag: {tags_template or "Tidak ada"}
+
+Aturan Penting:
+1. Ikuti pola/aturan judul dan deskripsi di atas dengan sangat ketat dan kreatif.
+2. Jangan membuat judul atau deskripsi yang sama persis jika diberikan input berbeda.
+3. Kembalikan HANYA JSON valid dengan format ini (tidak ada teks lain):
+{{
+  "title": "judul video (max 100 karakter)",
+  "description": "deskripsi video (max 5000 karakter)",
+  "tags": ["tag1", "tag2", "tag3"]
+}}
+"""
+        raw_text, model_used = gateway.generate_text(
+            prompt=user_prompt,
+            system_prompt=system_prompt,
+        )
+        return self._parse_and_validate(raw_text)
+
 
     def _parse_and_validate(self, raw_text: str) -> MetadataOutput:
         """Parse JSON dari AI output dan validasi via Pydantic."""
