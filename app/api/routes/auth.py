@@ -94,7 +94,7 @@ SCOPES = [
 ]
 
 # Temporary state store (in-memory — OK untuk 1 orang, single server)
-_pending_flows: dict[str, Flow] = {}
+_pending_flows: dict[str, dict] = {}
 
 
 @router.get(
@@ -116,14 +116,12 @@ async def start_oauth(
         raise HTTPException(status_code=404, detail=f"Channel {channel_id} tidak ditemukan")
 
     # Bangun redirect_uri dengan benar meskipun di belakang reverse proxy (Nginx + SSL)
-    # request.url_for() membaca base_url dari request yang masuk ke container,
-    # yang biasanya http:// (internal) meskipun user mengakses via https://.
     # Gunakan APP_BASE_URL dari .env jika diset, agar redirect_uri selalu https:// di production.
-    callback_path = request.url_for("oauth_callback", channel_id=channel_id).path
+    callback_path = request.url_for("oauth_callback").path
     if settings.app_base_url:
         redirect_uri = f"{settings.app_base_url.rstrip('/')}{callback_path}"
     else:
-        redirect_uri = str(request.url_for("oauth_callback", channel_id=channel_id))
+        redirect_uri = str(request.url_for("oauth_callback"))
 
     client_config = _get_client_config(redirect_uri)
     flow = Flow.from_client_config(
@@ -138,7 +136,8 @@ async def start_oauth(
         prompt="consent",
     )
 
-    _pending_flows[state] = flow
+    # Simpan flow beserta channel_id terkait
+    _pending_flows[state] = {"flow": flow, "channel_id": channel_id}
 
     log.info(
         "oauth_started",
@@ -156,36 +155,38 @@ async def start_oauth(
 
 
 @router.get(
-    "/youtube/{channel_id}/callback",
+    "/youtube/callback",
     name="oauth_callback",
     summary="Step 2: Callback dari Google — simpan token, redirect ke dashboard",
     response_class=RedirectResponse,
     include_in_schema=False,
 )
 async def oauth_callback(
-    channel_id: int,
     code: str,
     state: str,
     db: DBSession,
     request: Request,
 ):
     """
-    Handle callback dari Google OAuth.
+    Handle callback dari Google OAuth secara terpusat (statis).
     Exchange code → token → enkripsi → simpan ke DB → redirect ke /channels.
     """
-    flow = _pending_flows.pop(state, None)
-    if not flow:
+    flow_data = _pending_flows.pop(state, None)
+    if not flow_data:
         return RedirectResponse(
             url="/channels?oauth=error&msg=State+tidak+valid+atau+expired",
             status_code=303,
         )
 
+    flow = flow_data["flow"]
+    channel_id = flow_data["channel_id"]
+
     # Harus identik dengan redirect_uri yang dipakai di start_oauth
-    callback_path = request.url_for("oauth_callback", channel_id=channel_id).path
+    callback_path = request.url_for("oauth_callback").path
     if settings.app_base_url:
         redirect_uri = f"{settings.app_base_url.rstrip('/')}{callback_path}"
     else:
-        redirect_uri = str(request.url_for("oauth_callback", channel_id=channel_id))
+        redirect_uri = str(request.url_for("oauth_callback"))
     flow.redirect_uri = redirect_uri
 
     try:

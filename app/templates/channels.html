@@ -309,10 +309,10 @@ function renderOAuthSteps(data) {
         <div class="oauth-step">
             <div class="oauth-step-num">Langkah 2 dari 3</div>
             <h4>📋 Paste Callback URL</h4>
-            <p>Setelah authorize, Google akan redirect ke URL yang dimulai dengan <code>https://ytagent.my.id/auth/youtube/...</code> — copy URL tersebut dari address bar browser dan paste di sini:</p>
+            <p>Setelah authorize, Google akan redirect ke URL statis yang dimulai dengan <code>https://ytagent.my.id/auth/youtube/callback...</code> — copy URL tersebut dari address bar browser dan paste di sini:</p>
             <div class="callback-input-wrap">
                 <input type="text" id="callback-url-input" class="form-input"
-                    placeholder="https://ytagent.my.id/auth/youtube/${data.channel_id}/callback?code=...">
+                    placeholder="https://ytagent.my.id/auth/youtube/callback?code=...">
                 <button class="btn btn-primary" onclick="submitCallback()">Simpan</button>
             </div>
         </div>
@@ -350,7 +350,7 @@ async function submitCallback() {
     resultContent.innerHTML = '<div class="loading">Menyimpan token...</div>';
 
     try {
-        const callbackUrl = `/auth/youtube/${_oauthChannelId}/callback?code=${encodeURIComponent(code)}&state=${encodeURIComponent(state)}`;
+        const callbackUrl = `/auth/youtube/callback?code=${encodeURIComponent(code)}&state=${encodeURIComponent(state)}`;
         const res = await fetch(callbackUrl);
         const text = await res.text();
         let data = {};
