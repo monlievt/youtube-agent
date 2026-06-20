@@ -114,8 +114,35 @@ const STATUS_COLORS = {
     'NEEDS_REAUTH': 'badge-red',
 };
 
-let allItems = [];
+let channelMap = {};  // { channel_id: channel_name }
 
+/* ── Load channels untuk dropdown & name lookup ── */
+async function loadChannels() {
+    try {
+        const res = await fetch('/api/channels');
+        if (!res.ok) return;
+        const channels = await res.json();
+
+        channelMap = {};
+        channels.forEach(ch => { channelMap[ch.id] = ch.channel_name; });
+
+        const select = document.getElementById('channel-filter');
+        const currentVal = select.value;
+        Array.from(select.options).slice(1).forEach(o => o.remove());
+        channels.forEach(ch => {
+            const opt = document.createElement('option');
+            opt.value = ch.id;
+            const authIcon = ch.auth_status === 'VALID' ? ' ✓' : ' ⚠';
+            opt.textContent = ch.channel_name + authIcon;
+            select.appendChild(opt);
+        });
+        if (currentVal) select.value = currentVal;
+    } catch(e) {
+        console.error('Gagal load channels:', e);
+    }
+}
+
+/* ── Load queue items ── */
 async function loadQueue() {
     const channelId = document.getElementById('channel-filter').value;
     const status = document.getElementById('status-filter').value;
@@ -126,13 +153,35 @@ async function loadQueue() {
 
     try {
         const res = await fetch(url);
-        allItems = await res.json();
-        renderTable(allItems);
-        updateCounts(allItems);
+        const items = await res.json();
+        renderTable(items);
+        await loadCounts(channelId);
     } catch (e) {
         console.error('Gagal load queue:', e);
     }
 }
+
+/* ── Load counts per status (paralel) ── */
+async function loadCounts(channelId) {
+    const statuses = ['PENDING','AWAITING_APPROVAL','SCHEDULED','SCHEDULED_PUBLIC','DONE','FAILED_PERMANENT','THUMBNAIL_FAILED'];
+    const counts = {};
+    await Promise.all(statuses.map(async s => {
+        let url = `/api/queue?status=${s}`;
+        if (channelId) url += `&channel_id=${channelId}`;
+        try {
+            const r = await fetch(url);
+            const items = await r.json();
+            counts[s] = Array.isArray(items) ? items.length : 0;
+        } catch { counts[s] = 0; }
+    }));
+    document.getElementById('count-pending').textContent = counts['PENDING'] || 0;
+    document.getElementById('count-approval').textContent = counts['AWAITING_APPROVAL'] || 0;
+    document.getElementById('count-scheduled').textContent = (counts['SCHEDULED'] || 0) + (counts['SCHEDULED_PUBLIC'] || 0);
+    document.getElementById('count-done').textContent = counts['DONE'] || 0;
+    document.getElementById('count-failed').textContent = (counts['FAILED_PERMANENT'] || 0) + (counts['THUMBNAIL_FAILED'] || 0);
+}
+
+function filterQueue() { loadQueue(); }
 
 function renderTable(items) {
     const tbody = document.getElementById('queue-tbody');
@@ -140,28 +189,25 @@ function renderTable(items) {
         tbody.innerHTML = '<tr><td colspan="8" class="loading">Tidak ada data</td></tr>';
         return;
     }
-
     tbody.innerHTML = items.map(item => {
-        const filename = item.staging_path.split('/').pop();
+        const filename = item.staging_path ? item.staging_path.split('/').pop() : '—';
         const badgeClass = STATUS_COLORS[item.status] || 'badge-gray';
         const scheduledTime = item.scheduled_time
             ? new Date(item.scheduled_time).toLocaleString('id-ID', {timeZone: 'Asia/Jakarta'})
             : '—';
-
+        const channelName = item.channel_name || channelMap[item.channel_id] || `#${item.channel_id}`;
         const actions = buildActions(item);
-
         return `
             <tr>
                 <td>#${item.id}</td>
-                <td><strong>${item.channel_id}</strong></td>
+                <td><strong>${channelName}</strong></td>
                 <td class="filename" title="${filename}">${filename}</td>
                 <td class="title-cell" title="${item.title_final || ''}">${item.title_final || '<em>Belum ada</em>'}</td>
                 <td><span class="badge ${badgeClass}">${item.status}</span></td>
                 <td>${scheduledTime}</td>
-                <td>${item.youtube_video_id ? `<a href="https://youtu.be/${item.youtube_video_id}" target="_blank" style="color: var(--color-info-text); font-weight: 500;">${item.youtube_video_id}</a>` : '—'}</td>
+                <td>${item.youtube_video_id ? `<a href="https://youtu.be/${item.youtube_video_id}" target="_blank" style="color:var(--color-info-text);font-weight:500;">${item.youtube_video_id}</a>` : '—'}</td>
                 <td class="actions">${actions}</td>
-            </tr>
-        `;
+            </tr>`;
     }).join('');
 }
 
@@ -171,81 +217,69 @@ function buildActions(item) {
         btns.push(`<button class="btn btn-xs btn-green" onclick="approve(${item.id})">✓ Approve</button>`);
         btns.push(`<button class="btn btn-xs btn-red" onclick="reject(${item.id})">✗ Reject</button>`);
     }
-    if (['AWAITING_APPROVAL', 'METADATA_READY', 'SCHEDULED'].includes(item.status)) {
-        btns.push(`<button class="btn btn-xs btn-blue" onclick="openOverride(${item.id}, '${(item.title_final||'').replace(/'/g,"\\'")}', '')">✏️ Edit</button>`);
+    if (['AWAITING_APPROVAL','METADATA_READY','SCHEDULED'].includes(item.status)) {
+        btns.push(`<button class="btn btn-xs btn-blue" onclick="openOverride(${item.id}, '${(item.title_final||'').replace(/'/g,"\\'")}')">✏️ Edit</button>`);
     }
-    if (['FAILED_PERMANENT', 'THUMBNAIL_FAILED'].includes(item.status)) {
+    if (['FAILED_PERMANENT','THUMBNAIL_FAILED'].includes(item.status)) {
         btns.push(`<button class="btn btn-xs btn-orange" onclick="requeue(${item.id})">🔄 Re-queue</button>`);
     }
     return btns.join('');
 }
 
-function updateCounts(items) {
-    const counts = {};
-    items.forEach(i => { counts[i.status] = (counts[i.status] || 0) + 1; });
-    document.getElementById('count-pending').textContent = counts['PENDING'] || 0;
-    document.getElementById('count-approval').textContent = counts['AWAITING_APPROVAL'] || 0;
-    document.getElementById('count-scheduled').textContent = (counts['SCHEDULED'] || 0) + (counts['SCHEDULED_PUBLIC'] || 0);
-    document.getElementById('count-done').textContent = counts['DONE'] || 0;
-    document.getElementById('count-failed').textContent = (counts['FAILED_PERMANENT'] || 0) + (counts['THUMBNAIL_FAILED'] || 0);
-}
-
 async function approve(id) {
     if (!confirm(`Approve queue item #${id}?`)) return;
-    await fetch(`/api/queue/${id}/approve`, {method: 'POST'});
+    await fetch(`/api/queue/${id}/approve`, {method:'POST'});
     loadQueue();
 }
-
 async function reject(id) {
     if (!confirm(`Reject dan regenerate metadata untuk #${id}?`)) return;
-    await fetch(`/api/queue/${id}/reject`, {method: 'POST'});
+    await fetch(`/api/queue/${id}/reject`, {method:'POST'});
     loadQueue();
 }
-
 async function requeue(id) {
     const reason = prompt('Alasan re-queue:', 'Manual re-queue from dashboard');
     if (!reason) return;
     await fetch(`/api/queue/${id}/requeue`, {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
         body: JSON.stringify({reason})
     });
     loadQueue();
 }
 
-function openOverride(id, title, description) {
+function openOverride(id, title) {
     document.getElementById('override-queue-id').value = id;
     document.getElementById('override-title').value = title;
-    document.getElementById('override-description').value = description;
+    document.getElementById('override-description').value = '';
     document.getElementById('title-count').textContent = `${title.length}/100`;
     document.getElementById('override-modal').style.display = 'flex';
 }
-
 function closeModal() {
     document.getElementById('override-modal').style.display = 'none';
 }
-
 async function saveOverride() {
     const id = document.getElementById('override-queue-id').value;
     const title = document.getElementById('override-title').value;
     const description = document.getElementById('override-description').value;
-
     await fetch(`/api/queue/${id}/metadata`, {
-        method: 'PATCH',
-        headers: {'Content-Type': 'application/json'},
+        method:'PATCH',
+        headers:{'Content-Type':'application/json'},
         body: JSON.stringify({title, description})
     });
     closeModal();
     loadQueue();
 }
 
-// Title char counter
 document.getElementById('override-title')?.addEventListener('input', function() {
     document.getElementById('title-count').textContent = `${this.value.length}/100`;
 });
 
-// Auto-refresh setiap 30 detik
-loadQueue();
-setInterval(loadQueue, 30000);
+// Init
+async function init() {
+    await loadChannels();
+    loadQueue();
+}
+init();
+setInterval(() => { loadChannels(); loadQueue(); }, 30000);
 </script>
 {% endblock %}

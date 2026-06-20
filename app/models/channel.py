@@ -48,6 +48,17 @@ class Channel(Base):
     def __repr__(self) -> str:
         return f"<Channel id={self.id} name={self.channel_name!r} trust={self.trust_level}>"
 
+    @property
+    def auth_status(self) -> str | None:
+        """
+        Baca auth_status dari ChannelCredential.
+        Diperlukan agar ChannelResponse schema bisa serialize field ini
+        (field ada di tabel channel_credentials, bukan channels).
+        """
+        if self.credential and not self.credential.deleted_at:
+            return self.credential.auth_status
+        return None
+
 
 class ChannelCredential(Base):
     __tablename__ = "channel_credentials"
