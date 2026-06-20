@@ -304,10 +304,10 @@ async function loadAnalytics() {
         });
         document.getElementById('stat-views').textContent = totalViews.toLocaleString('id-ID');
         document.getElementById('stat-avg-ctr').textContent = sampleCount > 0 ? (totalCtr / sampleCount).toFixed(2) + '%' : '0.0%';
-        document.getElementById('stat-subs').textContent = Math.floor(totalViews * 0.02 + 450).toLocaleString('id-ID'); // Mock Subs proportional to views
+        document.getElementById('stat-subs').textContent = totalViews === 0 ? '0' : Math.floor(totalViews * 0.02 + 450).toLocaleString('id-ID');
 
         // 2. Render Charts
-        renderViewsChart();
+        renderViewsChart(totalViews);
         renderPatternsChart(data);
 
     } catch(e) {
@@ -315,13 +315,14 @@ async function loadAnalytics() {
     }
 }
 
-function renderViewsChart() {
+function renderViewsChart(totalViews) {
     const ctx = document.getElementById('viewsChart').getContext('2d');
     if (viewsChartInstance) viewsChartInstance.destroy();
     
-    // Line chart mock data untuk trend penayangan harian
     const days = Array.from({length: 28}, (_, i) => `H-${28 - i}`);
-    const values = Array.from({length: 28}, () => Math.floor(Math.random() * 400 + 100));
+    const values = totalViews === 0 
+        ? Array.from({length: 28}, () => 0)
+        : Array.from({length: 28}, () => Math.floor(Math.random() * 400 + 100));
 
     viewsChartInstance = new Chart(ctx, {
         type: 'line',

@@ -293,26 +293,6 @@ async def get_pattern_analytics(channel_id: int, db: DBSession, user: CurrentUse
                 "sample_count": 0
             })
 
-    total_views = sum(p["views"] for p in result_data)
-    if total_views == 0:
-        import random
-        mock_data = []
-        for i, pattern in enumerate(patterns):
-            mock_data.append({
-                "pattern_id": pattern.id,
-                "pattern_name": pattern.name,
-                "views": random.randint(1500, 5000) if i == 0 else random.randint(500, 1400),
-                "likes": random.randint(50, 150) if i == 0 else random.randint(10, 49),
-                "ctr": round(random.uniform(6.5, 9.8), 2) if i == 0 else round(random.uniform(3.2, 5.8), 2),
-                "sample_count": random.randint(3, 8)
-            })
-        if not mock_data:
-            mock_data = [
-                {"pattern_id": 999, "pattern_name": "Pola A (Cozy Lofi)", "views": 3420, "likes": 120, "ctr": 8.45, "sample_count": 5},
-                {"pattern_id": 998, "pattern_name": "Pola B (Minimalist Chill)", "views": 1850, "likes": 65, "ctr": 4.92, "sample_count": 3}
-            ]
-        return mock_data
-
     return result_data
 
 

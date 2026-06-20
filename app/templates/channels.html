@@ -219,6 +219,7 @@ function renderChannels(channels) {
                 <div>Genre: <strong style="text-transform: capitalize;">${ch.genre}</strong></div>
                 <div>Trust Level: <span class="badge ${trustBadge}">${ch.trust_level}</span></div>
                 <div>OAuth Status: <span class="badge ${authBadge}">${ch.auth_status || 'N/A'}</span></div>
+            </div>
             <div class="channel-actions">
                 <a href="/channels/${ch.id}" class="btn btn-xs btn-blue" style="text-decoration:none;">📊 Detail</a>
                 <button class="btn btn-xs btn-primary" onclick="openOAuth(${ch.id}, '${ch.channel_name}')">🔑 OAuth Setup</button>
