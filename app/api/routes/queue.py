@@ -192,3 +192,122 @@ async def requeue_failed(
         "original_queue_id": queue_id,
         "new_queue_id": new_item.id,
     }
+
+
+# ── Telegram Bot Webhook Endpoint ─────────────────────────────
+from fastapi import Request
+import httpx
+
+@router.post("/telegram-webhook", include_in_schema=False)
+async def telegram_webhook(request: Request):
+    """
+    Webhook handler untuk menangkap klik tombol persetujuan dari Telegram Bot.
+    """
+    from app.core.database import AsyncSessionLocal
+    try:
+        data = await request.json()
+        log.info("telegram_webhook_payload_received", data=data)
+        
+        callback_query = data.get("callback_query")
+        if not callback_query:
+            return {"status": "ignored"}
+
+        callback_data = callback_query.get("data", "")
+        message = callback_query.get("message", {})
+        message_id = message.get("message_id")
+        chat_id = message.get("chat", {}).get("id")
+        callback_query_id = callback_query.get("id")
+
+        if not callback_data or ":" not in callback_data:
+            return {"status": "ignored"}
+
+        action, queue_id_str = callback_data.split(":")
+        queue_id = int(queue_id_str)
+
+        async with AsyncSessionLocal() as db:
+            repo = QueueRepository(db)
+            item = await repo.get_by_id(queue_id)
+
+            if not item:
+                await answer_callback(callback_query_id, "Item antrean tidak ditemukan.")
+                return {"status": "error", "detail": "not found"}
+
+            new_text = ""
+            if action == "approve_upload":
+                if item.status != "AWAITING_APPROVAL":
+                    await answer_callback(callback_query_id, f"Gagal: status saat ini {item.status}")
+                    return {"status": "error"}
+
+                await repo.transition_status(
+                    item, "SCHEDULED",
+                    reason="Disetujui via Telegram Bot",
+                    actor="telegram_bot",
+                )
+                await db.commit()
+                filename = item.staging_path.split("/")[-1] if item.staging_path else "video"
+                new_text = f"✅ Video #{queue_id} (<code>{filename}</code>) telah <b>DISETUJUI</b> dan dijadwalkan publik."
+
+            elif action == "reject_upload":
+                await repo.transition_status(
+                    item, "PENDING",
+                    reason="Ditolak via Telegram Bot (metadata akan digenerate ulang)",
+                    actor="telegram_bot",
+                )
+                await db.commit()
+                new_text = f"❌ Video #{queue_id} telah <b>DITOLAK</b>. Metadata akan digenerate ulang oleh AI."
+
+            elif action == "approve_thumb":
+                new_text = f"✅ Gambar Mini (Thumbnail) untuk video #{queue_id} telah <b>DISETUJUI</b>."
+
+            elif action == "recreate_thumb":
+                await repo.transition_status(
+                    item, "THUMBNAIL_FAILED",
+                    reason="Thumbnail ditolak via Telegram, minta generate ulang",
+                    actor="telegram_bot",
+                )
+                await db.commit()
+                new_text = f"🔄 Thumbnail untuk video #{queue_id} <b>DITOLAK</b>. Diminta untuk generate ulang."
+
+            if new_text:
+                await edit_telegram_message(chat_id, message_id, new_text)
+                await answer_callback(callback_query_id, "Berhasil diproses!")
+
+        return {"status": "processed"}
+    except Exception as e:
+        log.error("telegram_webhook_error", error=str(e))
+        return {"status": "error", "message": str(e)}
+
+
+async def answer_callback(callback_query_id: str, text: str):
+    """Beri respons pop-up/toast di aplikasi Telegram."""
+    from app.core.config import get_settings
+    settings = get_settings()
+    if not settings.telegram_bot_token:
+        return
+    url = f"https://api.telegram.org/bot{settings.telegram_bot_token}/answerCallbackQuery"
+    try:
+        async with httpx.AsyncClient() as client:
+            await client.post(url, json={"callback_query_id": callback_query_id, "text": text}, timeout=5)
+    except Exception:
+        pass
+
+
+async def edit_telegram_message(chat_id: int, message_id: int, text: str):
+    """Edit pesan asli di Telegram untuk menghilangkan tombol."""
+    from app.core.config import get_settings
+    settings = get_settings()
+    if not settings.telegram_bot_token:
+        return
+    url = f"https://api.telegram.org/bot{settings.telegram_bot_token}/editMessageText"
+    try:
+        async with httpx.AsyncClient() as client:
+            await client.post(url, json={
+                "chat_id": chat_id,
+                "message_id": message_id,
+                "text": text,
+                "parse_mode": "HTML",
+                "reply_markup": {"inline_keyboard": []}
+            }, timeout=5)
+    except Exception:
+        pass
+

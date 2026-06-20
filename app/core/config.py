@@ -60,6 +60,8 @@ class Settings(BaseSettings):
 
     # Alerting
     discord_webhook_url: str | None = None
+    telegram_bot_token: str | None = None
+    telegram_chat_id: str | None = None
 
     # Google OAuth (alternatif dari client_secrets.json)
     google_client_id: str | None = None
