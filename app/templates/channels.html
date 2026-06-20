@@ -229,7 +229,8 @@ function renderChannels(channels) {
         const authBadge = ch.auth_status === 'VALID' ? 'badge-green' : ch.auth_status === 'REVOKED' ? 'badge-red' : 'badge-yellow';
 
         return `
-        <div class="channel-card ${genreClass}" style="border: 1px solid var(--color-hairline); border-radius: var(--radius-lg); padding: 20px; display: flex; flex-direction: column; justify-content: space-between; min-height: 315px; height: auto; background: var(--color-canvas); box-shadow: 0 4px 12px rgba(0,0,0,0.02); transition: all 0.2s;">
+        <div class="channel-card ${genreClass}" style="position: relative; border: 1px solid var(--color-hairline); border-radius: var(--radius-lg); padding: 20px; display: flex; flex-direction: column; justify-content: space-between; min-height: 315px; height: auto; background: var(--color-canvas); box-shadow: 0 4px 12px rgba(0,0,0,0.02); transition: all 0.2s;">
+            <button onclick="deleteChannel(${ch.id}, '${ch.channel_name.replace(/'/g, "\\'")}')" style="position: absolute; top: 12px; right: 12px; border: none; background: transparent; color: var(--color-error-text); cursor: pointer; font-size: 14px; z-index: 10; padding: 4px;" title="Hapus Channel">🗑️</button>
             <div style="display: flex; gap: 12px; align-items: center;">
                 <img src="${ch.youtube_thumbnail_url || DEFAULT_AVATAR}" style="width: 44px; height: 44px; border-radius: 50%; object-fit: cover; border: 2px solid var(--color-hairline);" alt="Avatar" onerror="this.src=DEFAULT_AVATAR">
                 <div style="flex: 1; min-width: 0;">
@@ -449,6 +450,28 @@ async function createChannel() {
         openOAuth(channel.id, 'Otorisasi Channel Baru');
     } catch(e) {
         alert('Gagal: ' + e.message);
+    }
+}
+
+async function deleteChannel(id, name) {
+    if (!confirm(`Apakah Anda yakin ingin menghapus channel "${name}"? Seluruh metadata dan antrean channel ini juga tidak akan diproses.`)) return;
+    try {
+        const res = await fetch(`/api/channels/${id}`, {
+            method: 'DELETE'
+        });
+        if (!res.ok) {
+            const text = await res.text();
+            let errMsg = text;
+            try {
+                const errJson = JSON.parse(text);
+                errMsg = errJson.detail || errMsg;
+            } catch(e) {}
+            throw new Error(errMsg);
+        }
+        alert('Channel berhasil dihapus!');
+        loadChannels();
+    } catch(e) {
+        alert('Gagal menghapus channel: ' + e.message);
     }
 }
 

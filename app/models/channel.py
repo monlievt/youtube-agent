@@ -64,6 +64,13 @@ class Channel(Base):
         Diperlukan agar ChannelResponse schema bisa serialize field ini
         (field ada di tabel channel_credentials, bukan channels).
         """
+        from sqlalchemy import inspect
+        try:
+            insp = inspect(self)
+            if insp and "credential" in insp.unloaded:
+                return None
+        except Exception:
+            return None
         if self.credential and not self.credential.deleted_at:
             return self.credential.auth_status
         return None

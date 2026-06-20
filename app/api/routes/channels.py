@@ -410,3 +410,24 @@ async def trigger_channel_folder_scan(channel_id: int, db: DBSession, user: Curr
     return {"status": "scan_triggered", "channel_name": channel.channel_name}
 
 
+@router.delete("/{channel_id}", status_code=204)
+async def delete_channel(channel_id: int, db: DBSession, user: CurrentUser) -> None:
+    """Soft delete a channel."""
+    repo = ChannelRepository(db)
+    channel = await repo.get_by_id(channel_id)
+    if not channel:
+        raise HTTPException(status_code=404, detail="Channel tidak ditemukan")
+    
+    from datetime import datetime
+    channel.deleted_at = datetime.utcnow()
+    
+    await repo.write_audit_log(
+        actor=user,
+        action="channel_deleted",
+        resource_type="channel",
+        resource_id=str(channel_id),
+        details={"channel_name": channel.channel_name},
+    )
+    await db.commit()
+
+
