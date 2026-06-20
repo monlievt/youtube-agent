@@ -61,10 +61,10 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
         response.headers["Content-Security-Policy"] = (
             "default-src 'self'; "
-            "script-src 'self' 'unsafe-inline'; "
+            "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
             "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
             "font-src 'self' https://fonts.gstatic.com; "
-            "img-src 'self' data:; "
+            "img-src 'self' data: https://*.ytimg.com https://i.ytimg.com; "
             "connect-src 'self';"
         )
 
@@ -187,6 +187,11 @@ async def dashboard_home(request: Request, user: CurrentPageUser):
 @app.get("/channels", response_class=HTMLResponse, include_in_schema=False)
 async def dashboard_channels(request: Request, user: CurrentPageUser):
     return templates.TemplateResponse("channels.html", {"request": request})
+
+
+@app.get("/channels/{channel_id}", response_class=HTMLResponse, include_in_schema=False)
+async def dashboard_channel_detail(channel_id: int, request: Request, user: CurrentPageUser):
+    return templates.TemplateResponse("channel_detail.html", {"request": request, "channel_id": channel_id})
 
 
 @app.get("/evaluations", response_class=HTMLResponse, include_in_schema=False)
