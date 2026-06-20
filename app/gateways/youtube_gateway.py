@@ -170,10 +170,10 @@ class YouTubeGateway:
             self._handle_http_error(e, "set_scheduled")
 
     def get_channel_info(self) -> dict:
-        """Verify token bisa digunakan — ambil info channel."""
+        """Verify token bisa digunakan — ambil info channel, statistics, dan playlist uploads."""
         try:
             response = self._service.channels().list(
-                part="snippet,statistics",
+                part="snippet,statistics,contentDetails",
                 mine=True,
             ).execute()
             items = response.get("items", [])
@@ -182,6 +182,18 @@ class YouTubeGateway:
             return items[0]
         except HttpError as e:
             self._handle_http_error(e, "get_channel_info")
+
+    def get_playlist_items(self, playlist_id: str, max_results: int = 50) -> list[dict]:
+        """Ambil daftar item (video) dari playlist tertentu (misal: playlist uploads)."""
+        try:
+            response = self._service.playlistItems().list(
+                part="snippet,status",
+                playlistId=playlist_id,
+                maxResults=max_results,
+            ).execute()
+            return response.get("items", [])
+        except HttpError as e:
+            self._handle_http_error(e, "get_playlist_items")
 
     def _handle_http_error(self, error: HttpError, operation: str) -> None:
         """Konversi HttpError ke domain exceptions."""

@@ -23,6 +23,12 @@ class ChannelResponse(BaseModel):
     genre: str
     trust_level: str
     is_active: bool
+    youtube_thumbnail_url: str | None = None
+    youtube_subscribers: int = 0
+    youtube_views: int = 0
+    youtube_video_count: int = 0
+    youtube_videos_cache: str | None = None
+    scanner_path: str | None = None
     auth_status: str | None = None
     created_at: datetime
 

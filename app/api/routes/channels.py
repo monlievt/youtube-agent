@@ -222,20 +222,76 @@ async def test_pattern(
 @router.get("/{channel_id}/uploaded-videos")
 async def list_uploaded_videos(channel_id: int, db: DBSession, user: CurrentUser):
     from app.repositories.queue_repo import QueueRepository
-    repo = QueueRepository(db)
-    items = await repo.get_by_channel(channel_id)
+    from app.repositories.channel_repo import ChannelRepository
+    import json
+    
+    # 1. Local database items
+    queue_repo = QueueRepository(db)
+    items = await queue_repo.get_by_channel(channel_id)
     uploaded = []
+    local_video_ids = set()
     for item in items:
         if item.status in ("DONE", "SCHEDULED_PUBLIC", "PRIVATE_UPLOADED", "THUMBNAIL_ATTACHED"):
+            if item.youtube_video_id:
+                local_video_ids.add(item.youtube_video_id)
             uploaded.append({
                 "id": item.id,
-                "title": item.title_final,
-                "description": item.description_final,
+                "title": item.title_final or item.title_generated,
+                "description": item.description_final or item.description_generated,
                 "status": item.status,
                 "youtube_video_id": item.youtube_video_id,
                 "uploaded_at": item.updated_at.isoformat() if item.updated_at else None
             })
+            
+    # 2. Cached YouTube playlist items
+    channel_repo = ChannelRepository(db)
+    channel = await channel_repo.get_by_id(channel_id)
+    if channel and channel.youtube_videos_cache:
+        try:
+            cached_videos = json.loads(channel.youtube_videos_cache)
+            for cv in cached_videos:
+                v_id = cv.get("youtube_video_id")
+                # Avoid duplicate with local items
+                if v_id and v_id not in local_video_ids:
+                    uploaded.append({
+                        "id": f"yt-{v_id}",
+                        "title": cv.get("title"),
+                        "description": cv.get("description"),
+                        "status": "DONE",
+                        "youtube_video_id": v_id,
+                        "uploaded_at": cv.get("published_at")
+                    })
+        except Exception as e:
+            log.error("load_cached_videos_failed", error=str(e))
+            
     return uploaded
+
+
+@router.post("/{channel_id}/sync")
+async def sync_channel_data(channel_id: int, db: DBSession, user: CurrentUser):
+    """Trigger background metadata & video sync task for a channel."""
+    from app.workers.analytics_tasks import sync_channel_metadata_task
+    
+    repo = ChannelRepository(db)
+    channel = await repo.get_by_id(channel_id)
+    if not channel:
+        raise HTTPException(status_code=404, detail="Channel tidak ditemukan")
+        
+    if not channel.credential or channel.auth_status != "VALID":
+        raise HTTPException(status_code=400, detail="OAuth belum terhubung untuk channel ini")
+        
+    # Jalankan background task
+    sync_channel_metadata_task.delay(channel_id, actor=f"human:{user}")
+    
+    await repo.write_audit_log(
+        actor=user,
+        action="channel_sync_triggered",
+        resource_type="channel",
+        resource_id=str(channel_id),
+        details={"channel_name": channel.channel_name},
+    )
+    
+    return {"status": "sync_triggered", "channel_id": channel_id}
 
 
 @router.get("/{channel_id}/pattern-analytics")

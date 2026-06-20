@@ -5,7 +5,7 @@ Models: channels, channel_credentials
 from datetime import datetime
 
 from sqlalchemy import (
-    Boolean, DateTime, Enum, ForeignKey, Integer,
+    Boolean, DateTime, Enum, ForeignKey, Integer, BigInteger,
     String, Text, UniqueConstraint, func,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -27,6 +27,11 @@ class Channel(Base):
         nullable=False,
     )
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    youtube_thumbnail_url: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    youtube_subscribers: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    youtube_views: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
+    youtube_video_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    youtube_videos_cache: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), onupdate=func.now()
@@ -61,6 +66,16 @@ class Channel(Base):
         if self.credential and not self.credential.deleted_at:
             return self.credential.auth_status
         return None
+
+    @property
+    def scanner_path(self) -> str:
+        """
+        Path pemantauan folder scanner untuk channel ini.
+        """
+        from app.core.config import get_settings
+        settings = get_settings()
+        import os
+        return os.path.join(settings.nfs_videos_path, self.channel_name)
 
 
 class ChannelCredential(Base):

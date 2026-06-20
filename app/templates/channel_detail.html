@@ -6,14 +6,18 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <div class="page-header" style="border-bottom: 1px solid var(--color-hairline); padding-bottom: 20px;">
-    <div>
-        <div style="display: flex; align-items: center; gap: 12px;">
-            <a href="/channels" class="btn btn-xs btn-tertiary" style="border-radius: 8px;">← Kembali</a>
-            <h1 id="channel-name-title" style="margin: 0;">📺 Memuat Channel...</h1>
+    <div style="display: flex; align-items: center; gap: 16px;">
+        <img id="channel-avatar" src="" style="display: none; width: 56px; height: 56px; border-radius: 50%; border: 2px solid var(--color-primary);" alt="Avatar">
+        <div>
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <a href="/channels" class="btn btn-xs btn-tertiary" style="border-radius: 8px;">← Kembali</a>
+                <h1 id="channel-name-title" style="margin: 0;">📺 Memuat Channel...</h1>
+            </div>
+            <p class="page-desc" id="channel-genre-subtitle">Genre: — | Trust Level: —</p>
         </div>
-        <p class="page-desc" id="channel-genre-subtitle">Genre: — | Trust Level: —</p>
     </div>
-    <div style="display: flex; gap: 8px;">
+    <div style="display: flex; align-items: center; gap: 8px;">
+        <button class="btn btn-primary btn-xs" id="sync-btn" onclick="syncChannelData()" style="background: var(--color-primary); border-color: var(--color-primary); color: white; display: none;">⚡ Sync YouTube Data</button>
         <span class="badge" id="channel-active-badge">PAUSED</span>
         <span class="badge" id="channel-oauth-badge">N/A</span>
     </div>
@@ -263,9 +267,18 @@ async function loadChannelDetails() {
         const res = await fetch(`/api/channels/${channelId}`);
         const ch = await res.json();
         
-        document.getElementById('channel-name-title').textContent = '📺 ' + ch.channel_name;
-        document.getElementById('channel-genre-subtitle').innerHTML = `Genre: <strong style="text-transform:capitalize;">${ch.genre}</strong> | Trust Level: <span class="badge badge-purple" style="font-size:10px;padding:2px 6px;">${ch.trust_level}</span>`;
+        document.getElementById('channel-name-title').textContent = ch.channel_name;
+        document.getElementById('channel-genre-subtitle').innerHTML = `Genre: <strong style="text-transform:capitalize;">${ch.genre}</strong> | Trust Level: <span class="badge badge-purple" style="font-size:10px;padding:2px 6px;">${ch.trust_level}</span><br><small style="color:var(--color-steel);margin-top:4px;display:inline-block;">📁 Path Scanner: <code>${ch.scanner_path || '—'}</code></small>`;
         
+        // Avatar Photo
+        const avatarImg = document.getElementById('channel-avatar');
+        if (ch.youtube_thumbnail_url) {
+            avatarImg.src = ch.youtube_thumbnail_url;
+            avatarImg.style.display = 'block';
+        } else {
+            avatarImg.style.display = 'none';
+        }
+
         // Active Badge
         const activeBadge = document.getElementById('channel-active-badge');
         activeBadge.className = 'badge ' + (ch.is_active ? 'badge-green' : 'badge-gray');
@@ -275,6 +288,14 @@ async function loadChannelDetails() {
         const oauthBadge = document.getElementById('channel-oauth-badge');
         oauthBadge.className = 'badge ' + (ch.auth_status === 'VALID' ? 'badge-green' : 'badge-yellow');
         oauthBadge.textContent = 'OAuth: ' + (ch.auth_status || 'N/A');
+
+        // Sync button
+        const syncBtn = document.getElementById('sync-btn');
+        if (ch.auth_status === 'VALID') {
+            syncBtn.style.display = 'inline-block';
+        } else {
+            syncBtn.style.display = 'none';
+        }
 
         // Populate Playground Defaults
         document.getElementById('test-title-template').value = `Lofi Chill Beats to Study/Relax - ${ch.channel_name}`;
@@ -289,22 +310,25 @@ async function loadChannelDetails() {
 // 2. Load Analytics & Render Charts
 async function loadAnalytics() {
     try {
+        // Fetch channel info for views & subs
+        const chRes = await fetch(`/api/channels/${channelId}`);
+        const ch = await chRes.json();
+
         // Fetch pattern analytics (yang juga berisi mock data jika kosong)
         const res = await fetch(`/api/channels/${channelId}/pattern-analytics`);
         const data = await res.json();
 
         // 1. Hitung stats widgets
-        let totalViews = 0;
+        let totalViews = ch.youtube_views || 0;
         let totalCtr = 0.0;
         let sampleCount = 0;
         data.forEach(p => {
-            totalViews += p.views;
             totalCtr += p.ctr;
             sampleCount++;
         });
         document.getElementById('stat-views').textContent = totalViews.toLocaleString('id-ID');
         document.getElementById('stat-avg-ctr').textContent = sampleCount > 0 ? (totalCtr / sampleCount).toFixed(2) + '%' : '0.0%';
-        document.getElementById('stat-subs').textContent = totalViews === 0 ? '0' : Math.floor(totalViews * 0.02 + 450).toLocaleString('id-ID');
+        document.getElementById('stat-subs').textContent = (ch.youtube_subscribers || 0).toLocaleString('id-ID');
 
         // 2. Render Charts
         renderViewsChart(totalViews);
@@ -641,6 +665,36 @@ async function loadUploadedVideos() {
 
     } catch(e) {
         console.error('Gagal load video terbit:', e);
+    }
+}
+
+async function syncChannelData() {
+    const btn = document.getElementById('sync-btn');
+    const oldText = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = '⏳ Syncing...';
+    
+    try {
+        const res = await fetch(`/api/channels/${channelId}/sync`, {
+            method: 'POST'
+        });
+        if (!res.ok) {
+            const data = await res.json();
+            throw new Error(data.detail || 'Gagal sinkronisasi');
+        }
+        alert('Permintaan sinkronisasi YouTube berhasil dikirim ke background! Halaman detail akan di-refresh beberapa saat lagi secara otomatis.');
+        
+        // Refresh detail info setelah 3 detik
+        setTimeout(async () => {
+            await initPage();
+            btn.disabled = false;
+            btn.textContent = oldText;
+        }, 3000);
+        
+    } catch(e) {
+        btn.disabled = false;
+        btn.textContent = oldText;
+        alert('Gagal: ' + e.message);
     }
 }
 

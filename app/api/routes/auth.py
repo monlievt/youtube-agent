@@ -213,6 +213,14 @@ async def oauth_callback(
     channel_repo = ChannelRepository(db)
     await channel_repo.set_auth_status(channel_id, "VALID")
 
+    # Memicu sync data awal (initial sync) YouTube
+    try:
+        from app.workers.analytics_tasks import sync_channel_metadata_task
+        sync_channel_metadata_task.delay(channel_id, actor="oauth_callback")
+        log.info("initial_channel_sync_triggered", channel_id=channel_id)
+    except Exception as e:
+        log.error("failed_to_trigger_initial_sync", channel_id=channel_id, error=str(e))
+
     log.info(
         "oauth_completed",
         channel_id=channel_id,

@@ -97,3 +97,20 @@ def schedule_analytics_pulls_task() -> str:
                     
     asyncio.run(_run())
     return "Scan & schedule analytics pulls selesai"
+
+
+@celery_app.task(name="app.workers.analytics_tasks.sync_channel_metadata_task")
+def sync_channel_metadata_task(channel_id: int, actor: str = "SYSTEM") -> str:
+    """Task Celery untuk sinkronisasi data profil, statistik dan daftar video channel dari YouTube."""
+    import asyncio
+    
+    async def _run():
+        async with AsyncSessionLocal() as session:
+            service = AnalyticsService(session)
+            res = await service.sync_channel_metadata(channel_id, actor=actor)
+            await session.commit()
+            return res
+            
+    res = asyncio.run(_run())
+    return f"Sukses sinkronisasi channel {channel_id}: {res}"
+
