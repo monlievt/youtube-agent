@@ -29,14 +29,26 @@
             <input type="hidden" id="new-channel-name" value="Draft Channel">
             <label>Genre *</label>
             <select id="new-channel-genre" class="form-input">
-                <option value="gaming">Gaming</option>
-                <option value="tech">Teknologi / Edukasi</option>
-                <option value="entertainment">Hiburan / Vlog</option>
-                <option value="lofi">Musik Lofi</option>
-                <option value="phonk">Musik Phonk</option>
-                <option value="jazz">Musik Jazz</option>
-                <option value="ambient">Musik Ambient</option>
-                <option value="other">Lainnya</option>
+                <option value="Music">Musik (Music)</option>
+                <option value="Gaming">Game (Gaming)</option>
+                <option value="Entertainment">Hiburan (Entertainment)</option>
+                <option value="Education">Pendidikan (Education)</option>
+                <option value="Science & Technology">Sains & Teknologi (Science & Tech)</option>
+                <option value="Film & Animation">Film & Animasi (Film & Animation)</option>
+                <option value="People & Blogs">Blog & Orang (People & Blogs)</option>
+                <option value="Howto & Style">Cara & Gaya (Howto & Style)</option>
+                <option value="News & Politics">Berita & Politik (News & Politics)</option>
+                <option value="Comedy">Komedi (Comedy)</option>
+                <option value="Travel & Events">Perjalanan & Acara (Travel & Events)</option>
+                <option value="Sports">Olahraga (Sports)</option>
+                <option value="Autos & Vehicles">Otomotif (Autos & Vehicles)</option>
+                <option value="Pets & Animals">Hewan & Peliharaan (Pets & Animals)</option>
+                <option value="Nonprofits & Activism">Aktivisme & Nirlaba (Nonprofits & Activism)</option>
+                <option value="Lofi Music">Musik Lofi (Music - Lofi)</option>
+                <option value="Phonk Music">Musik Phonk (Music - Phonk)</option>
+                <option value="Jazz Music">Musik Jazz (Music - Jazz)</option>
+                <option value="Ambient Music">Musik Ambient (Music - Ambient)</option>
+                <option value="Other">Lainnya (Other)</option>
             </select>
             <label>Trust Level</label>
             <select id="new-channel-trust" class="form-input">
@@ -198,6 +210,8 @@ async function loadChannels() {
     renderChannels(channels);
 }
 
+const DEFAULT_AVATAR = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="%23e9ecef"/><circle cx="50" cy="40" r="18" fill="%23adb5bd"/><path d="M50 64c-20 0-32 8-32 16v4h64v-4c0-8-12-16-32-16z" fill="%23adb5bd"/></svg>`;
+
 function renderChannels(channels) {
     const grid = document.getElementById('channels-grid');
     if (!channels.length) {
@@ -212,9 +226,9 @@ function renderChannels(channels) {
         const authBadge = ch.auth_status === 'VALID' ? 'badge-green' : ch.auth_status === 'REVOKED' ? 'badge-red' : 'badge-yellow';
 
         return `
-        <div class="channel-card ${genreClass}" style="border: 1px solid var(--color-hairline); border-radius: var(--radius-lg); padding: 20px; display: flex; flex-direction: column; justify-content: space-between; height: 265px; background: var(--color-canvas); box-shadow: 0 4px 12px rgba(0,0,0,0.02); transition: all 0.2s;">
+        <div class="channel-card ${genreClass}" style="border: 1px solid var(--color-hairline); border-radius: var(--radius-lg); padding: 20px; display: flex; flex-direction: column; justify-content: space-between; min-height: 315px; height: auto; background: var(--color-canvas); box-shadow: 0 4px 12px rgba(0,0,0,0.02); transition: all 0.2s;">
             <div style="display: flex; gap: 12px; align-items: center;">
-                <img src="${ch.youtube_thumbnail_url || 'https://cdn-icons-png.flaticon.com/512/3670/3670147.png'}" style="width: 44px; height: 44px; border-radius: 50%; object-fit: cover; border: 2px solid var(--color-hairline);" alt="Avatar" onerror="this.src='https://cdn-icons-png.flaticon.com/512/3670/3670147.png'">
+                <img src="${ch.youtube_thumbnail_url || DEFAULT_AVATAR}" style="width: 44px; height: 44px; border-radius: 50%; object-fit: cover; border: 2px solid var(--color-hairline);" alt="Avatar" onerror="this.src=DEFAULT_AVATAR">
                 <div style="flex: 1; min-width: 0;">
                     <h3 style="margin: 0; font-size: 16px; font-weight: 600; color: var(--color-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${ch.channel_name}">${ch.channel_name}</h3>
                     <span class="badge ${activeBadge}" style="margin-top: 4px; display: inline-block;">${ch.is_active ? 'AKTIF' : 'PAUSED'}</span>
@@ -405,8 +419,14 @@ async function createChannel() {
             body: JSON.stringify({channel_name: name, genre, trust_level: trust})
         });
         if (!res.ok) {
-            const err = await res.json();
-            throw new Error(err.detail || 'Gagal membuat draft channel');
+            let errMsg = 'Gagal membuat draft channel';
+            try {
+                const err = await res.json();
+                errMsg = err.detail || errMsg;
+            } catch(e) {
+                errMsg = await res.text();
+            }
+            throw new Error(errMsg);
         }
         
         const channel = await res.json();

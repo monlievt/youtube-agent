@@ -41,6 +41,15 @@ class ChannelRepository:
         )
         return list(result.scalars().all())
 
+    async def get_all_non_deleted(self) -> list[Channel]:
+        result = await self._session.execute(
+            select(Channel)
+            .options(selectinload(Channel.credential))
+            .where(Channel.deleted_at.is_(None))
+            .order_by(Channel.channel_name)
+        )
+        return list(result.scalars().all())
+
     async def create(self, channel: Channel) -> Channel:
         self._session.add(channel)
         await self._session.flush()

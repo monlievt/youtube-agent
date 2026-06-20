@@ -17,7 +17,7 @@ router = APIRouter(prefix="/api/channels", tags=["Channels"])
 @router.get("", response_model=list[ChannelResponse])
 async def list_channels(db: DBSession, user: CurrentUser) -> list[Channel]:
     repo = ChannelRepository(db)
-    return await repo.get_all_active()
+    return await repo.get_all_non_deleted()
 
 
 @router.get("/{channel_id}", response_model=ChannelResponse)
