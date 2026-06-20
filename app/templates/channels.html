@@ -212,25 +212,37 @@ function renderChannels(channels) {
         const authBadge = ch.auth_status === 'VALID' ? 'badge-green' : ch.auth_status === 'REVOKED' ? 'badge-red' : 'badge-yellow';
 
         return `
-        <div class="channel-card ${genreClass}">
-            <div class="channel-card-header">
-                <h3>${ch.channel_name}</h3>
-                <span class="badge ${activeBadge}">${ch.is_active ? 'AKTIF' : 'PAUSED'}</span>
+        <div class="channel-card ${genreClass}" style="border: 1px solid var(--color-hairline); border-radius: var(--radius-lg); padding: 20px; display: flex; flex-direction: column; justify-content: space-between; height: 265px; background: var(--color-canvas); box-shadow: 0 4px 12px rgba(0,0,0,0.02); transition: all 0.2s;">
+            <div style="display: flex; gap: 12px; align-items: center;">
+                <img src="${ch.youtube_thumbnail_url || 'https://cdn-icons-png.flaticon.com/512/3670/3670147.png'}" style="width: 44px; height: 44px; border-radius: 50%; object-fit: cover; border: 2px solid var(--color-hairline);" alt="Avatar" onerror="this.src='https://cdn-icons-png.flaticon.com/512/3670/3670147.png'">
+                <div style="flex: 1; min-width: 0;">
+                    <h3 style="margin: 0; font-size: 16px; font-weight: 600; color: var(--color-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${ch.channel_name}">${ch.channel_name}</h3>
+                    <span class="badge ${activeBadge}" style="margin-top: 4px; display: inline-block;">${ch.is_active ? 'AKTIF' : 'PAUSED'}</span>
+                </div>
             </div>
-            <div class="channel-meta">
-                <div>Genre: <strong style="text-transform: capitalize;">${ch.genre}</strong></div>
-                <div>Trust Level: <span class="badge ${trustBadge}">${ch.trust_level}</span></div>
-                <div>OAuth Status: <span class="badge ${authBadge}">${ch.auth_status || 'N/A'}</span></div>
+            
+            <div class="channel-meta" style="margin-top: 12px; margin-bottom: 12px; font-size: 13px; display: flex; flex-direction: column; gap: 6px; border-top: 1px solid var(--color-hairline-soft); border-bottom: 1px solid var(--color-hairline-soft); padding: 8px 0;">
+                <div style="display: flex; justify-content: space-between;">
+                    <span style="color: var(--color-steel);">Kategori:</span>
+                    <strong style="color: var(--color-ink); text-transform: capitalize;">${ch.genre}</strong>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span style="color: var(--color-steel);">Trust Level:</span>
+                    <span class="badge ${trustBadge}">${ch.trust_level}</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span style="color: var(--color-steel);">OAuth YouTube:</span>
+                    <span class="badge ${authBadge}">${ch.auth_status || 'N/A'}</span>
+                </div>
             </div>
-            <div class="channel-actions">
-                <a href="/channels/${ch.id}" class="btn btn-xs btn-blue" style="text-decoration:none;">📊 Detail</a>
-                <button class="btn btn-xs btn-primary" onclick="openOAuth(${ch.id}, '${ch.channel_name}')">🔑 OAuth Setup</button>
-                <button class="btn btn-xs btn-tertiary"
-                    onclick="toggleTrust(${ch.id}, '${ch.trust_level}')">
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
+                <a href="/channels/${ch.id}" class="btn btn-xs btn-primary" style="text-decoration:none; text-align: center; justify-content: center; font-weight: 500; height: 28px; line-height: 16px;">📊 Detail</a>
+                <button class="btn btn-xs btn-tertiary" onclick="openOAuth(${ch.id}, '${ch.channel_name}')" style="justify-content: center; font-weight: 500; height: 28px;">🔑 OAuth Setup</button>
+                <button class="btn btn-xs btn-tertiary" onclick="toggleTrust(${ch.id}, '${ch.trust_level}')" style="justify-content: center; font-size: 10px; height: 28px;">
                     ${ch.trust_level === 'TRUSTED' ? '↓ Set NEW' : '↑ Set TRUSTED'}
                 </button>
-                <button class="btn btn-xs btn-tertiary"
-                    onclick="toggleActive(${ch.id}, ${ch.is_active})">
+                <button class="btn btn-xs btn-tertiary" onclick="toggleActive(${ch.id}, ${ch.is_active})" style="justify-content: center; font-size: 10px; height: 28px;">
                     ${ch.is_active ? '⏸ Pause' : '▶ Resume'}
                 </button>
             </div>
