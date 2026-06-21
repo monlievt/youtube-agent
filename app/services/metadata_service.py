@@ -50,8 +50,8 @@ Buatkan metadata YouTube untuk video musik berikut:
 
 Kembalikan HANYA JSON valid dengan format ini (tidak ada teks lain):
 {{
-  "title": "judul video (max 100 karakter, CTR-oriented, dalam Bahasa Indonesia)",
-  "description": "deskripsi video (max 5000 karakter, keyword-rich, dalam Bahasa Indonesia, sertakan tracklist jika relevan)",
+  "title": "judul video (max 100 karakter, CTR-oriented, sesuaikan bahasa dengan preferensi bahasa yang tersirat di nama file/genre, utamakan Bahasa Inggris jika bernuansa global/lofi)",
+  "description": "deskripsi video (max 5000 karakter, keyword-rich, sesuaikan bahasa dengan judul, sertakan tracklist jika relevan)",
   "tags": ["tag1", "tag2", "tag3"]
 }}
 
