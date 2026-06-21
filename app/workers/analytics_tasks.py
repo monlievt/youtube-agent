@@ -34,7 +34,8 @@ def pull_video_analytics_task(queue_id: int, log_type: str) -> str:
             
             await session.commit()
             
-    asyncio.run(_run())
+    from app.workers.celery_app import run_async
+    run_async(_run())
     return f"Sukses menarik analytics & evaluasi {log_type} untuk queue_id {queue_id}"
 
 
@@ -95,7 +96,8 @@ def schedule_analytics_pulls_task() -> str:
                     log.info("scheduling_h7_analytics_pull", queue_id=video.id)
                     pull_video_analytics_task.delay(video.id, "H7")
                     
-    asyncio.run(_run())
+    from app.workers.celery_app import run_async
+    run_async(_run())
     return "Scan & schedule analytics pulls selesai"
 
 
@@ -111,6 +113,7 @@ def sync_channel_metadata_task(channel_id: int, actor: str = "SYSTEM") -> str:
             await session.commit()
             return res
             
-    res = asyncio.run(_run())
+    from app.workers.celery_app import run_async
+    res = run_async(_run())
     return f"Sukses sinkronisasi channel {channel_id}: {res}"
 

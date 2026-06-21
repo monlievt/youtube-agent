@@ -86,4 +86,6 @@ def generate_thumbnail_for_queue(self, queue_id: int) -> dict:
                 # Jangan fail seluruh upload — thumbnail gagal bisa di-retry manual
                 return {"status": "failed", "queue_id": queue_id, "error": str(e)}
 
-    return asyncio.run(run())
+    from app.workers.celery_app import run_async
+    return run_async(run())
+

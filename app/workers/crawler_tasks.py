@@ -126,8 +126,8 @@ def scan_omv_storage(self) -> dict:
                             error_message=str(e),
                         )
                         await session.rollback()
-
-    asyncio.run(run())
+    from app.workers.celery_app import run_async
+    run_async(run())
 
     result = {
         "status": "completed",

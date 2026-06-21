@@ -90,3 +90,20 @@ celery_app.conf.beat_schedule = {
         "schedule": 30.0,
     },
 }
+
+
+def run_async(coro):
+    import asyncio
+    
+    async def wrapper():
+        try:
+            return await coro
+        finally:
+            try:
+                from app.core.database import engine
+                await engine.dispose()
+            except Exception:
+                pass
+            
+    return asyncio.run(wrapper())
+

@@ -113,7 +113,8 @@ def process_scheduled_uploads(self) -> dict:
 
         return {"uploaded": uploaded, "quota_exhausted": quota_exhausted, "errors": errors}
 
-    result = asyncio.run(run())
+    from app.workers.celery_app import run_async
+    result = run_async(run())
     log.info("upload_batch_completed", **result, function="process_scheduled_uploads")
     return result
 
@@ -160,7 +161,8 @@ def detect_stuck_uploads(self) -> dict:
 
         return {"stuck_detected": stuck_count}
 
-    return asyncio.run(run())
+    from app.workers.celery_app import run_async
+    return run_async(run())
 
 
 @celery_app.task(name="app.workers.upload_tasks.cancel_expired_approvals", bind=True)
@@ -199,7 +201,8 @@ def cancel_expired_approvals(self) -> dict:
 
         return {"cancelled": cancelled}
 
-    return asyncio.run(run())
+    from app.workers.celery_app import run_async
+    return run_async(run())
 
 
 @celery_app.task(name="app.workers.upload_tasks.reset_daily_quota", bind=True)
@@ -223,7 +226,8 @@ def reset_daily_quota(self) -> dict:
         log.info("daily_quota_reset", function="reset_daily_quota")
         return {"status": "reset_completed"}
 
-    return asyncio.run(run())
+    from app.workers.celery_app import run_async
+    return run_async(run())
 
 
 @celery_app.task(name="app.workers.upload_tasks.worker_heartbeat_task")

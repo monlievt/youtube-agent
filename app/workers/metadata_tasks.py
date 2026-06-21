@@ -109,6 +109,8 @@ def process_pending_metadata(self) -> dict:
 
         return {"processed": processed, "failed": failed}
 
-    result = asyncio.run(run())
+    from app.workers.celery_app import run_async
+    result = run_async(run())
     log.info("metadata_batch_completed", **result, function="process_pending_metadata")
     return result
+
