@@ -273,7 +273,7 @@ function buildActions(item) {
         btns.push(`<button class="btn btn-xs btn-red" onclick="reject(${item.id})">✗ Reject</button>`);
     }
     if (['AWAITING_APPROVAL','METADATA_READY','SCHEDULED'].includes(item.status)) {
-        btns.push(`<button class="btn btn-xs btn-blue" onclick="openOverride(${item.id}, '${(item.title_final||'').replace(/'/g,"\\'")}')">✏️ Edit</button>`);
+        btns.push(`<button class="btn btn-xs btn-blue" onclick="openOverride(${item.id})">✏️ Edit</button>`);
     }
     if (['FAILED_PERMANENT','THUMBNAIL_FAILED'].includes(item.status)) {
         btns.push(`<button class="btn btn-xs btn-orange" onclick="requeue(${item.id})">🔄 Re-queue</button>`);
@@ -302,12 +302,28 @@ async function requeue(id) {
     loadQueue();
 }
 
-function openOverride(id, title) {
+async function openOverride(id) {
     document.getElementById('override-queue-id').value = id;
-    document.getElementById('override-title').value = title;
-    document.getElementById('override-description').value = '';
-    document.getElementById('title-count').textContent = `${title.length}/100`;
+    document.getElementById('override-title').value = 'Memuat...';
+    document.getElementById('override-description').value = 'Memuat...';
+    document.getElementById('title-count').textContent = '0/100';
     document.getElementById('override-modal').style.display = 'flex';
+
+    try {
+        const res = await fetch(`/api/queue/${id}`);
+        if (!res.ok) throw new Error('Gagal memuat detail metadata');
+        const item = await res.json();
+        
+        const title = item.title_final || item.title_generated || '';
+        const desc = item.description_final || item.description_generated || '';
+        
+        document.getElementById('override-title').value = title;
+        document.getElementById('override-description').value = desc;
+        document.getElementById('title-count').textContent = `${title.length}/100`;
+    } catch(e) {
+        alert(e.message);
+        closeModal();
+    }
 }
 function closeModal() {
     document.getElementById('override-modal').style.display = 'none';
