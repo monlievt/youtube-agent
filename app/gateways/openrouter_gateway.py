@@ -18,7 +18,7 @@ log = get_logger(__name__)
 settings = get_settings()
 
 DEFAULT_MODEL_CHAIN = [
-    "google/gemini-2.5-flash",                  # Paid primary (fast, robust & extremely cheap)
+    "google/gemini-3.5-flash",                  # Paid primary (fast, robust & extremely cheap)
     "meta-llama/llama-3.3-70b-instruct:free",   # Primary free fallback
     "mistralai/mistral-7b-instruct:free",         # Fallback
     "google/gemma-2-9b-it:free",                  # Last resort
