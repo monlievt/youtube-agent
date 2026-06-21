@@ -140,7 +140,7 @@ class AnalyticsService:
                         recent_videos.append({
                             "youtube_video_id": v_id,
                             "title": v_title,
-                            "description": v_desc,
+                            "description": (v_desc[:200] + "...") if v_desc and len(v_desc) > 200 else (v_desc or ""),
                             "published_at": v_published_at,
                         })
             except Exception as e:
