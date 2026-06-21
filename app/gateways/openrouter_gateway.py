@@ -39,7 +39,7 @@ class OpenRouterGateway:
     def __init__(self, model_chain: list[str] | None = None, timeout_seconds: int = 30):
         self._model_chain = model_chain or DEFAULT_MODEL_CHAIN
         self._timeout = timeout_seconds
-        self._base_url = settings.openrouter_base_url
+        self._base_url = settings.openrouter_base_url.rstrip("/")
         self._api_key = settings.openrouter_api_key
 
     def generate_text(self, prompt: str, system_prompt: str = "") -> tuple[str, str]:

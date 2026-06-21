@@ -261,7 +261,7 @@ function renderTable(items) {
                 <td><span class="badge ${badgeClass}">${item.status}</span></td>
                 <td>${scheduledTime}</td>
                 <td>${item.youtube_video_id ? `<a href="https://youtu.be/${item.youtube_video_id}" target="_blank" style="color:var(--color-info-text);font-weight:500;">${item.youtube_video_id}</a>` : '—'}</td>
-                <td class="actions">${actions}</td>
+                <td><div class="actions">${actions}</div></td>
             </tr>`;
     }).join('');
 }
@@ -275,7 +275,7 @@ function buildActions(item) {
     if (['AWAITING_APPROVAL','METADATA_READY','SCHEDULED'].includes(item.status)) {
         btns.push(`<button class="btn btn-xs btn-blue" onclick="openOverride(${item.id})">✏️ Edit</button>`);
     }
-    if (['FAILED_PERMANENT','THUMBNAIL_FAILED'].includes(item.status)) {
+    if (['FAILED_PERMANENT','THUMBNAIL_FAILED','PAUSED_EXTERNAL'].includes(item.status)) {
         btns.push(`<button class="btn btn-xs btn-orange" onclick="requeue(${item.id})">🔄 Re-queue</button>`);
     }
     return btns.join('');
