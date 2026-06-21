@@ -98,63 +98,6 @@ _pending_flows: dict[str, dict] = {}
 
 
 @router.get(
-    "/youtube/{channel_id}",
-    summary="Step 1: Mulai OAuth flow — return authorization URL",
-)
-async def start_oauth(
-    channel_id: int,
-    db: DBSession,
-    user: CurrentUser,
-    request: Request,
-) -> dict:
-    """
-    Return URL yang harus dibuka user di browser untuk authorize YouTube access.
-    """
-    channel_repo = ChannelRepository(db)
-    channel = await channel_repo.get_by_id(channel_id)
-    if not channel:
-        raise HTTPException(status_code=404, detail=f"Channel {channel_id} tidak ditemukan")
-
-    # Bangun redirect_uri dengan benar meskipun di belakang reverse proxy (Nginx + SSL)
-    # Gunakan APP_BASE_URL dari .env jika diset, agar redirect_uri selalu https:// di production.
-    callback_path = request.url_for("oauth_callback").path
-    if settings.app_base_url:
-        redirect_uri = f"{settings.app_base_url.rstrip('/')}{callback_path}"
-    else:
-        redirect_uri = str(request.url_for("oauth_callback"))
-
-    client_config = _get_client_config(redirect_uri)
-    flow = Flow.from_client_config(
-        client_config,
-        scopes=SCOPES,
-        redirect_uri=redirect_uri,
-    )
-
-    authorization_url, state = flow.authorization_url(
-        access_type="offline",
-        include_granted_scopes="true",
-        prompt="consent",
-    )
-
-    # Simpan flow beserta channel_id terkait
-    _pending_flows[state] = {"flow": flow, "channel_id": channel_id}
-
-    log.info(
-        "oauth_started",
-        channel_id=channel_id,
-        state=state[:8],
-        function="start_oauth",
-    )
-
-    return {
-        "channel_id": channel_id,
-        "channel_name": channel.channel_name,
-        "authorization_url": authorization_url,
-        "instruction": "Buka authorization_url di browser, authorize, lalu paste callback URL yang di-redirect",
-    }
-
-
-@router.get(
     "/youtube/callback",
     name="oauth_callback",
     summary="Step 2: Callback dari Google — simpan token, redirect ke dashboard",
@@ -233,3 +176,60 @@ async def oauth_callback(
         url=f"/channels?oauth=success&channel_id={channel_id}",
         status_code=303,
     )
+
+
+@router.get(
+    "/youtube/{channel_id}",
+    summary="Step 1: Mulai OAuth flow — return authorization URL",
+)
+async def start_oauth(
+    channel_id: int,
+    db: DBSession,
+    user: CurrentUser,
+    request: Request,
+) -> dict:
+    """
+    Return URL yang harus dibuka user di browser untuk authorize YouTube access.
+    """
+    channel_repo = ChannelRepository(db)
+    channel = await channel_repo.get_by_id(channel_id)
+    if not channel:
+        raise HTTPException(status_code=404, detail=f"Channel {channel_id} tidak ditemukan")
+
+    # Bangun redirect_uri dengan benar meskipun di belakang reverse proxy (Nginx + SSL)
+    # Gunakan APP_BASE_URL dari .env jika diset, agar redirect_uri selalu https:// di production.
+    callback_path = request.url_for("oauth_callback").path
+    if settings.app_base_url:
+        redirect_uri = f"{settings.app_base_url.rstrip('/')}{callback_path}"
+    else:
+        redirect_uri = str(request.url_for("oauth_callback"))
+
+    client_config = _get_client_config(redirect_uri)
+    flow = Flow.from_client_config(
+        client_config,
+        scopes=SCOPES,
+        redirect_uri=redirect_uri,
+    )
+
+    authorization_url, state = flow.authorization_url(
+        access_type="offline",
+        include_granted_scopes="true",
+        prompt="consent",
+    )
+
+    # Simpan flow beserta channel_id terkait
+    _pending_flows[state] = {"flow": flow, "channel_id": channel_id}
+
+    log.info(
+        "oauth_started",
+        channel_id=channel_id,
+        state=state[:8],
+        function="start_oauth",
+    )
+
+    return {
+        "channel_id": channel_id,
+        "channel_name": channel.channel_name,
+        "authorization_url": authorization_url,
+        "instruction": "Buka authorization_url di browser, authorize, lalu paste callback URL yang di-redirect",
+    }
