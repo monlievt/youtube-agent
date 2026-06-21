@@ -101,7 +101,8 @@ class OpenRouterGateway:
             "model": model,
             "messages": messages,
             "temperature": 0.7,
-            "max_tokens": 1000,
+            "max_tokens": 2048,
+            "response_format": {"type": "json_object"}
         }
 
         headers = {
