@@ -606,9 +606,9 @@ async function runSimulation() {
 async function loadQueue() {
     try {
         // Ambil queue lokal, filter khusus channel ini
-        const res = await fetch('/api/queue');
+        const res = await fetch(`/api/queue?channel_id=${channelId}`);
         const items = await res.json();
-        const chItems = items.filter(i => i.channel_id === channelId);
+        const chItems = items;
 
         const tbody = document.getElementById('queue-list-tbody');
         if (!chItems.length) {
