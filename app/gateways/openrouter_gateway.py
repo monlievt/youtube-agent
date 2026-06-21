@@ -130,6 +130,11 @@ class OpenRouterGateway:
             content = data["choices"][0]["message"]["content"]
             return content.strip()
 
+        except httpx.HTTPStatusError as e:
+            raise ExternalAPIError(
+                f"OpenRouter {model} HTTP error: {e.response.status_code}",
+                status_code=e.response.status_code,
+            ) from e
         except httpx.TimeoutException as e:
             raise ExternalAPIError(
                 f"OpenRouter timeout setelah {self._timeout} detik (model: {model})",
