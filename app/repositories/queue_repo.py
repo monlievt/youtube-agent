@@ -51,6 +51,7 @@ class QueueRepository:
         """
         result = await self._session.execute(
             select(UploadQueue)
+            .options(selectinload(UploadQueue.channel))
             .where(
                 UploadQueue.status == "PENDING",
                 UploadQueue.deleted_at.is_(None),
@@ -68,6 +69,7 @@ class QueueRepository:
         """
         result = await self._session.execute(
             select(UploadQueue)
+            .options(selectinload(UploadQueue.channel))
             .where(
                 UploadQueue.status == "SCHEDULED",
                 UploadQueue.scheduled_time <= datetime.utcnow(),
