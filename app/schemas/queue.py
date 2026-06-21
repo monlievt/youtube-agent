@@ -7,11 +7,23 @@ from datetime import datetime
 from pydantic import BaseModel
 
 
+class VideoTagResponse(BaseModel):
+    tag: str
+    position: int
+    source: str
+
+    model_config = {"from_attributes": True}
+
+
 class QueueItemResponse(BaseModel):
     id: int
     channel_id: int
     staging_path: str
     title_final: str | None
+    description_final: str | None
+    title_generated: str | None
+    description_generated: str | None
+    is_human_override: bool
     status: str
     scheduled_time: datetime | None
     youtube_video_id: str | None
@@ -19,6 +31,7 @@ class QueueItemResponse(BaseModel):
     error_message: str | None
     created_at: datetime
     updated_at: datetime
+    tags: list[VideoTagResponse] = []
 
     model_config = {"from_attributes": True}
 

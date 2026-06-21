@@ -28,7 +28,7 @@ class QueueRepository:
     async def get_by_channel(
         self, channel_id: int, status: str | None = None
     ) -> list[UploadQueue]:
-        q = select(UploadQueue).where(
+        q = select(UploadQueue).options(selectinload(UploadQueue.tags)).where(
             UploadQueue.channel_id == channel_id,
             UploadQueue.deleted_at.is_(None),
         )
@@ -38,7 +38,7 @@ class QueueRepository:
         return list(result.scalars().all())
 
     async def get_all_by_status(self, status: str | None = None) -> list[UploadQueue]:
-        q = select(UploadQueue).where(UploadQueue.deleted_at.is_(None))
+        q = select(UploadQueue).options(selectinload(UploadQueue.tags)).where(UploadQueue.deleted_at.is_(None))
         if status:
             q = q.where(UploadQueue.status == status)
         result = await self._session.execute(q.order_by(UploadQueue.created_at.desc()))

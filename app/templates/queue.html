@@ -135,11 +135,15 @@
         </div>
         <div class="modal-body">
             <input type="hidden" id="override-queue-id">
+            <div id="metadata-source-status" style="margin-bottom: 12px; font-size: 13px;"></div>
             <label>Judul (max 100 karakter)</label>
             <input type="text" id="override-title" maxlength="100" class="form-input">
             <span id="title-count" class="char-count">0/100</span>
             <label>Deskripsi (max 5000 karakter)</label>
             <textarea id="override-description" maxlength="5000" rows="8" class="form-textarea"></textarea>
+            
+            <label style="margin-top: 12px; display: block; font-weight: 500;">🏷️ Tags (AI Generated)</label>
+            <div id="override-tags-container" style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; padding: 10px; background: var(--color-surface-soft); border-radius: 6px; border: 1px solid var(--color-hairline); min-height: 38px;"></div>
         </div>
         <div class="modal-footer">
             <button class="btn btn-primary" onclick="saveOverride()">💾 Simpan</button>
@@ -252,12 +256,17 @@ function renderTable(items) {
             : '—';
         const channelName = item.channel_name || channelMap[item.channel_id] || `#${item.channel_id}`;
         const actions = buildActions(item);
+        
+        const aiBadge = item.is_human_override 
+            ? `<span style="font-size: 9px; padding: 2px 6px; border-radius: 4px; background: var(--color-surface-soft); color: var(--color-steel); margin-left: 6px; font-weight: 600; display: inline-flex; align-items: center; gap: 3px; border: 1px solid var(--color-hairline);">✍️ Manual</span>`
+            : `<span style="font-size: 9px; padding: 2px 6px; border-radius: 4px; background: #e0f2fe; color: #0369a1; margin-left: 6px; font-weight: 600; display: inline-flex; align-items: center; gap: 3px; border: 1px solid #bae6fd;">🤖 AI</span>`;
+
         return `
             <tr>
                 <td>#${item.id}</td>
                 <td><strong>${channelName}</strong></td>
                 <td class="filename" title="${filename}">${filename}</td>
-                <td class="title-cell" title="${item.title_final || ''}">${item.title_final || '<em>Belum ada</em>'}</td>
+                <td class="title-cell" title="${item.title_final || ''}">${item.title_final || '<em>Belum ada</em>'} ${item.title_final ? aiBadge : ''}</td>
                 <td><span class="badge ${badgeClass}">${item.status}</span></td>
                 <td>${scheduledTime}</td>
                 <td>${item.youtube_video_id ? `<a href="https://youtu.be/${item.youtube_video_id}" target="_blank" style="color:var(--color-info-text);font-weight:500;">${item.youtube_video_id}</a>` : '—'}</td>
@@ -319,6 +328,8 @@ async function openOverride(id) {
     document.getElementById('override-title').value = 'Memuat...';
     document.getElementById('override-description').value = 'Memuat...';
     document.getElementById('title-count').textContent = '0/100';
+    document.getElementById('metadata-source-status').innerHTML = 'Memuat status...';
+    document.getElementById('override-tags-container').innerHTML = '<span style="color:var(--color-steel);">Memuat...</span>';
     document.getElementById('override-modal').style.display = 'flex';
 
     try {
@@ -332,6 +343,24 @@ async function openOverride(id) {
         document.getElementById('override-title').value = title;
         document.getElementById('override-description').value = desc;
         document.getElementById('title-count').textContent = `${title.length}/100`;
+
+        // Render source status
+        const statusEl = document.getElementById('metadata-source-status');
+        if (item.is_human_override) {
+            statusEl.innerHTML = `Sumber: <strong style="color: var(--color-steel); background: var(--color-surface-soft); padding: 2px 6px; border-radius: 4px; border: 1px solid var(--color-hairline);">✍️ Diedit Manual</strong>`;
+        } else {
+            statusEl.innerHTML = `Sumber: <strong style="color: #0369a1; background: #e0f2fe; padding: 2px 6px; border-radius: 4px; border: 1px solid #bae6fd;">🤖 AI Generated</strong>`;
+        }
+
+        // Render tags
+        const tagsContainer = document.getElementById('override-tags-container');
+        if (!item.tags || item.tags.length === 0) {
+            tagsContainer.innerHTML = '<em style="color: var(--color-steel); font-size: 12px;">Tidak ada tags yang dibuat oleh AI</em>';
+        } else {
+            tagsContainer.innerHTML = item.tags.map(t => {
+                return `<span style="font-size: 11px; font-weight: 500; background: var(--color-surface-soft); color: var(--color-ink); padding: 4px 8px; border-radius: 999px; border: 1px solid var(--color-hairline); display: inline-flex; align-items: center;">#${t.tag}</span>`;
+            }).join('');
+        }
     } catch(e) {
         alert(e.message);
         closeModal();
