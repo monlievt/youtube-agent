@@ -106,7 +106,7 @@ services:
       dockerfile: docker/Dockerfile
     container_name: hermes_beat
     restart: unless-stopped
-    command: celery -A app.workers.celery_app beat --loglevel=info --scheduler celery.beat.PersistentScheduler --schedule=/var/lib/celery/schedule
+    command: celery -A app.workers.celery_app beat --loglevel=info --scheduler celery.beat.PersistentScheduler --schedule=/tmp/celery-schedule
     user: root
     env_file: .env
     environment:
