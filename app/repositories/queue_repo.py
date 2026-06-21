@@ -37,12 +37,11 @@ class QueueRepository:
         result = await self._session.execute(q.order_by(UploadQueue.created_at.desc()))
         return list(result.scalars().all())
 
-    async def get_all_by_status(self, status: str) -> list[UploadQueue]:
-        result = await self._session.execute(
-            select(UploadQueue)
-            .where(UploadQueue.status == status, UploadQueue.deleted_at.is_(None))
-            .order_by(UploadQueue.created_at)
-        )
+    async def get_all_by_status(self, status: str | None = None) -> list[UploadQueue]:
+        q = select(UploadQueue).where(UploadQueue.deleted_at.is_(None))
+        if status:
+            q = q.where(UploadQueue.status == status)
+        result = await self._session.execute(q.order_by(UploadQueue.created_at.desc()))
         return list(result.scalars().all())
 
     async def lock_next_pending(self) -> UploadQueue | None:

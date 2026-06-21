@@ -283,22 +283,34 @@ function buildActions(item) {
 
 async function approve(id) {
     if (!confirm(`Approve queue item #${id}?`)) return;
-    await fetch(`/api/queue/${id}/approve`, {method:'POST'});
+    const res = await fetch(`/api/queue/${id}/approve`, {method:'POST'});
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        alert('Gagal menyetujui: ' + (err.detail || 'Terjadi kesalahan server'));
+    }
     loadQueue();
 }
 async function reject(id) {
     if (!confirm(`Reject dan regenerate metadata untuk #${id}?`)) return;
-    await fetch(`/api/queue/${id}/reject`, {method:'POST'});
+    const res = await fetch(`/api/queue/${id}/reject`, {method:'POST'});
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        alert('Gagal menolak: ' + (err.detail || 'Terjadi kesalahan server'));
+    }
     loadQueue();
 }
 async function requeue(id) {
     const reason = prompt('Alasan re-queue:', 'Manual re-queue from dashboard');
     if (!reason) return;
-    await fetch(`/api/queue/${id}/requeue`, {
+    const res = await fetch(`/api/queue/${id}/requeue`, {
         method:'POST',
         headers:{'Content-Type':'application/json'},
         body: JSON.stringify({reason})
     });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        alert('Gagal requeue: ' + (err.detail || 'Terjadi kesalahan server'));
+    }
     loadQueue();
 }
 

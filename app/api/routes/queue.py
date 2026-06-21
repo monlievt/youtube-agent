@@ -25,8 +25,8 @@ async def list_queue(
 ) -> list:
     repo = QueueRepository(db)
     if channel_id:
-        return await repo.get_by_channel(channel_id, status=status)
-    return await repo.get_all_by_status(status or "PENDING")
+        return await repo.get_by_channel(channel_id, status=status if status else None)
+    return await repo.get_all_by_status(status if status else None)
 
 
 @router.get("/{queue_id}", response_model=QueueItemResponse)
@@ -148,10 +148,17 @@ async def requeue_failed(
     if not original:
         raise HTTPException(status_code=404, detail="Queue item tidak ditemukan")
 
-    if original.status not in ("FAILED_PERMANENT", "THUMBNAIL_FAILED"):
+    if original.status not in (
+        "FAILED_PERMANENT",
+        "THUMBNAIL_FAILED",
+        "PAUSED_EXTERNAL",
+        "PAUSED",
+        "QUOTA_EXHAUSTED",
+        "NEEDS_REAUTH",
+    ):
         raise HTTPException(
             status_code=400,
-            detail=f"Hanya FAILED_PERMANENT atau THUMBNAIL_FAILED yang bisa di-requeue"
+            detail=f"Hanya status gagal, tertunda (paused), atau quota/auth exhausted yang bisa di-requeue (status saat ini: {original.status})"
         )
 
     # Buat record baru
