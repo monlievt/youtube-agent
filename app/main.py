@@ -167,8 +167,8 @@ async def login_post(
         value=encrypt(username),
         httponly=True,
         secure=is_production,      # HTTPS only di production
-        samesite="strict",         # Strict: tidak dikirim di cross-site request apapun
-        max_age=86400 * 7,         # 7 hari (lebih konservatif dari 30 hari)
+        samesite="lax",             # Lax: allows cookie to be sent on cross-site redirect navigations
+        max_age=86400 * 7,         # 7 hari
     )
     return response
 
