@@ -388,6 +388,14 @@ async function loadDashboardStats() {
 // Init
 async function init() {
     await loadChannels();
+    const params = new URLSearchParams(window.location.search);
+    const filterChanId = params.get('channel_id');
+    if (filterChanId) {
+        const filterSelect = document.getElementById('channel-filter');
+        if (filterSelect) {
+            filterSelect.value = filterChanId;
+        }
+    }
     loadQueue();
     await loadDashboardStats();
 }

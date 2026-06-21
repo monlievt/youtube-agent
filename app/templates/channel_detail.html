@@ -635,7 +635,7 @@ async function loadQueue() {
                     <td class="title-cell" title="${item.title_final || ''}">${item.title_final || '<em>Belum ada</em>'}</td>
                     <td><span class="badge ${badgeClass}">${item.status}</span></td>
                     <td>${scheduledTime}</td>
-                    <td><a href="/" class="btn btn-xs btn-tertiary">Kelola</a></td>
+                    <td><a href="/?channel_id=${channelId}" class="btn btn-xs btn-tertiary">Kelola</a></td>
                 </tr>
             `;
         }).join('');

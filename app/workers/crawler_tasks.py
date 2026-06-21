@@ -81,6 +81,8 @@ def scan_omv_storage(self) -> dict:
                     continue
 
                 for file_path in channel_dir.iterdir():
+                    if file_path.name.startswith("."):
+                        continue
                     if file_path.suffix.lower() not in SUPPORTED_EXTENSIONS:
                         continue
 
