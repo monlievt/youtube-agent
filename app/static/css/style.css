@@ -368,7 +368,7 @@ body {
     font-size: 20px; 
 }
 
-.actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.actions { display: flex; gap: 6px; flex-wrap: nowrap; min-width: 160px; white-space: nowrap; }
 
 /* ── Forms ──────────────────────────────────────── */
 .form-input, .form-textarea {

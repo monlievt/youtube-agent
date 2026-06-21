@@ -17,9 +17,9 @@ log = get_logger(__name__)
 
 settings = get_settings()
 
-# Model chain sesuai blueprint (akan di-override dari system_config jika tersedia)
 DEFAULT_MODEL_CHAIN = [
-    "meta-llama/llama-3.3-70b-instruct:free",   # Primary
+    "google/gemini-2.5-flash",                  # Paid primary (fast, robust & extremely cheap)
+    "meta-llama/llama-3.3-70b-instruct:free",   # Primary free fallback
     "mistralai/mistral-7b-instruct:free",         # Fallback
     "google/gemma-2-9b-it:free",                  # Last resort
 ]
