@@ -161,27 +161,29 @@ async def requeue_failed(
             detail=f"Hanya status gagal, tertunda (paused), atau quota/auth exhausted yang bisa di-requeue (status saat ini: {original.status})"
         )
 
-    # Buat record baru
-    new_item = UploadQueue(
-        channel_id=original.channel_id,
-        file_checksum_id=original.file_checksum_id,
-        staging_path=original.staging_path,
-        thumbnail_path=original.thumbnail_path,
-        title_final=original.title_final,
-        description_final=original.description_final,
-        is_human_override=original.is_human_override,
-        status="PENDING",
-    )
-    new_item = await repo.create(new_item)
+    # Reset kolom-kolom terkait eksekusi sebelumnya
+    original.error_message = None
+    original.retry_count = 0
+    original.next_retry_at = None
+    original.locked_at = None
+    original.worker_id = None
+    original.youtube_video_id = None
 
-    # Referensikan ID lama di history
+    # Transisi status ke PENDING
+    await repo.transition_status(
+        original, "PENDING",
+        reason=f"Re-queued: {data.reason}",
+        actor=f"human:{user}",
+    )
+
+    # Referensikan aksi requeue di metadata history
     from app.models.history import MetadataHistory
     await repo.write_metadata_history(
         MetadataHistory(
-            queue_id=new_item.id,
+            queue_id=original.id,
             field_name="status",
-            old_value=None,
-            new_value=f"Re-queued from original queue_id={queue_id}: {data.reason}",
+            old_value=original.previous_status,
+            new_value=f"Re-queued back to PENDING: {data.reason}",
             changed_by="HUMAN",
             change_reason=data.reason,
         )
@@ -189,15 +191,14 @@ async def requeue_failed(
 
     log.info(
         "queue_requeued",
-        original_queue_id=queue_id,
-        new_queue_id=new_item.id,
+        queue_id=queue_id,
         actor=user,
         function="requeue_failed",
     )
     return {
         "status": "requeued",
         "original_queue_id": queue_id,
-        "new_queue_id": new_item.id,
+        "new_queue_id": original.id,
     }
 
 
