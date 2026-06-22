@@ -54,6 +54,9 @@ services:
       - REDIS_URL=redis://redis:6379/0
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/1
+      - NFS_VIDEOS_PATH=/mnt/omv-videos
+      - NFS_ARCHIVE_PATH=/mnt/omv-archive
+      - NFS_THUMBNAILS_PATH=/mnt/omv-thumbnails
     ports:
       - "8000:8000"
     volumes:
@@ -85,6 +88,9 @@ services:
       - REDIS_URL=redis://redis:6379/0
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/1
+      - NFS_VIDEOS_PATH=/mnt/omv-videos
+      - NFS_ARCHIVE_PATH=/mnt/omv-archive
+      - NFS_THUMBNAILS_PATH=/mnt/omv-thumbnails
     volumes:
       - .:/app
       - ${STAGING_PATH:-/var/staging}:/var/staging
