@@ -20,7 +20,7 @@ class QueueRepository:
     async def get_by_id(self, queue_id: int) -> UploadQueue | None:
         result = await self._session.execute(
             select(UploadQueue)
-            .options(selectinload(UploadQueue.tags))
+            .options(selectinload(UploadQueue.tags), selectinload(UploadQueue.channel))
             .where(UploadQueue.id == queue_id, UploadQueue.deleted_at.is_(None))
         )
         return result.scalar_one_or_none()

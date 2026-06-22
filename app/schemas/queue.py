@@ -49,6 +49,7 @@ class MetadataOverride(BaseModel):
     made_for_kids: bool = False
     is_altered_content: bool = False
     playlist_id: str | None = None
+    scheduled_time: datetime | None = None
     save_as_preset: bool = False
 
 

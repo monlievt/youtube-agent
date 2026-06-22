@@ -81,23 +81,23 @@
 
 <!-- Status counters -->
 <div class="stats-grid" id="stats-grid">
-    <div class="stat-card" style="border-top: 4px solid var(--color-slate);">
+    <div class="stat-card">
         <div class="stat-number" id="count-pending">—</div>
         <div class="stat-label">PENDING</div>
     </div>
-    <div class="stat-card" style="border-top: 4px solid #b45309;">
+    <div class="stat-card">
         <div class="stat-number" id="count-approval">—</div>
         <div class="stat-label">AWAITING APPROVAL</div>
     </div>
-    <div class="stat-card" style="border-top: 4px solid #7e22ce;">
+    <div class="stat-card">
         <div class="stat-number" id="count-scheduled">—</div>
         <div class="stat-label">SCHEDULED</div>
     </div>
-    <div class="stat-card" style="border-top: 4px solid var(--color-success-text);">
+    <div class="stat-card">
         <div class="stat-number" id="count-done">—</div>
         <div class="stat-label">DONE</div>
     </div>
-    <div class="stat-card" style="border-top: 4px solid var(--color-error-text);">
+    <div class="stat-card">
         <div class="stat-number" id="count-failed">—</div>
         <div class="stat-label">FAILED</div>
     </div>
@@ -151,10 +151,14 @@
                 <button class="btn btn-secondary btn-sm" onclick="generateAiThumbnail()" id="btn-gen-thumb">🎨 Generate AI Thumbnail (Free)</button>
             </div>
 
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; margin-bottom: 12px;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-top: 12px; margin-bottom: 12px;">
+                <div>
+                    <label>Jadwal Posting (WIB)</label>
+                    <input type="datetime-local" id="override-scheduled-time" class="form-input" style="padding: 8px 10px;">
+                </div>
                 <div>
                     <label>Kategori Video</label>
-                    <select id="override-category" class="form-input">
+                    <select id="override-category" class="form-input" style="padding: 8px 10px; height: 38px;">
                         <option value="10">Music</option>
                         <option value="24">Entertainment</option>
                         <option value="22">People & Blogs</option>
@@ -165,7 +169,7 @@
                 </div>
                 <div>
                     <label>Playlist ID (YouTube)</label>
-                    <input type="text" id="override-playlist" class="form-input" placeholder="e.g. PLxxx">
+                    <input type="text" id="override-playlist" class="form-input" placeholder="e.g. PLxxx" style="padding: 8px 10px;">
                 </div>
             </div>
 
@@ -303,13 +307,17 @@ function renderTable(items) {
             ? `<span style="font-size: 9px; padding: 2px 6px; border-radius: 4px; background: var(--color-surface-soft); color: var(--color-steel); margin-left: 6px; font-weight: 600; display: inline-flex; align-items: center; gap: 3px; border: 1px solid var(--color-hairline);">✍️ Manual</span>`
             : `<span style="font-size: 9px; padding: 2px 6px; border-radius: 4px; background: #e0f2fe; color: #0369a1; margin-left: 6px; font-weight: 600; display: inline-flex; align-items: center; gap: 3px; border: 1px solid #bae6fd;">🤖 AI</span>`;
 
+        const errMsg = item.error_message 
+            ? `<div style="color: var(--color-error-text); font-size: 11px; margin-top: 4px; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500;" title="${item.error_message}">⚠️ ${item.error_message}</div>`
+            : '';
+
         return `
             <tr>
                 <td>#${item.id}</td>
                 <td><strong>${channelName}</strong></td>
                 <td class="filename" title="${filename}">${filename}</td>
                 <td class="title-cell" title="${item.title_final || ''}">${item.title_final || '<em>Belum ada</em>'} ${item.title_final ? aiBadge : ''}</td>
-                <td><span class="badge ${badgeClass}">${item.status}</span></td>
+                <td><span class="badge ${badgeClass}">${item.status}</span>${errMsg}</td>
                 <td>${scheduledTime}</td>
                 <td>${item.youtube_video_id ? `<a href="https://youtu.be/${item.youtube_video_id}" target="_blank" style="color:var(--color-info-text);font-weight:500;">${item.youtube_video_id}</a>` : '—'}</td>
                 <td><div class="actions">${actions}</div></td>
@@ -399,6 +407,12 @@ async function openOverride(id) {
         document.getElementById('override-kids').checked = item.made_for_kids || false;
         document.getElementById('override-altered').checked = item.is_altered_content || false;
         document.getElementById('override-save-preset').checked = false;
+        
+        if (item.scheduled_time) {
+            document.getElementById('override-scheduled-time').value = item.scheduled_time.slice(0, 16);
+        } else {
+            document.getElementById('override-scheduled-time').value = '';
+        }
 
         // Render source status
         const statusEl = document.getElementById('metadata-source-status');
@@ -447,6 +461,9 @@ async function saveOverride() {
     const made_for_kids = document.getElementById('override-kids').checked;
     const is_altered_content = document.getElementById('override-altered').checked;
     const save_as_preset = document.getElementById('override-save-preset').checked;
+    
+    const scheduled_time_val = document.getElementById('override-scheduled-time').value;
+    const scheduled_time = scheduled_time_val ? new Date(scheduled_time_val).toISOString() : null;
 
     const res = await fetch(`/api/queue/${id}/metadata`, {
         method:'PATCH',
@@ -458,6 +475,7 @@ async function saveOverride() {
             playlist_id,
             made_for_kids,
             is_altered_content,
+            scheduled_time,
             save_as_preset
         })
     });

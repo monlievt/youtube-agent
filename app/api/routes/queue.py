@@ -108,6 +108,7 @@ async def override_metadata(
     item.made_for_kids = data.made_for_kids
     item.is_altered_content = data.is_altered_content
     item.playlist_id = data.playlist_id
+    item.scheduled_time = data.scheduled_time
 
     # Simpan sebagai preset jika dicentang
     if data.save_as_preset:

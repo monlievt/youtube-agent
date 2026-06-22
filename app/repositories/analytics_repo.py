@@ -14,6 +14,7 @@ from app.models.analytics import (
     TimeslotPerformance,
     ThumbnailStyle,
 )
+from app.models.queue import UploadQueue
 
 
 class AnalyticsRepository:
@@ -35,7 +36,10 @@ class AnalyticsRepository:
     async def get_evaluation_by_id(self, eval_id: int) -> VideoEvaluation | None:
         result = await self._session.execute(
             select(VideoEvaluation)
-            .options(selectinload(VideoEvaluation.options), selectinload(VideoEvaluation.queue_item))
+            .options(
+                selectinload(VideoEvaluation.options),
+                selectinload(VideoEvaluation.queue_item).selectinload(UploadQueue.channel)
+            )
             .where(VideoEvaluation.id == eval_id, VideoEvaluation.deleted_at.is_(None))
         )
         return result.scalar_one_or_none()
@@ -43,7 +47,10 @@ class AnalyticsRepository:
     async def get_evaluations_by_status(self, status: str) -> list[VideoEvaluation]:
         result = await self._session.execute(
             select(VideoEvaluation)
-            .options(selectinload(VideoEvaluation.options), selectinload(VideoEvaluation.queue_item))
+            .options(
+                selectinload(VideoEvaluation.options),
+                selectinload(VideoEvaluation.queue_item).selectinload(UploadQueue.channel)
+            )
             .where(VideoEvaluation.eval_status == status, VideoEvaluation.deleted_at.is_(None))
             .order_by(VideoEvaluation.created_at.desc())
         )
@@ -52,7 +59,10 @@ class AnalyticsRepository:
     async def get_all_active_evaluations(self) -> list[VideoEvaluation]:
         result = await self._session.execute(
             select(VideoEvaluation)
-            .options(selectinload(VideoEvaluation.options), selectinload(VideoEvaluation.queue_item))
+            .options(
+                selectinload(VideoEvaluation.options),
+                selectinload(VideoEvaluation.queue_item).selectinload(UploadQueue.channel)
+            )
             .where(
                 VideoEvaluation.eval_status.in_(["PENDING", "ACTION_REQUIRED"]),
                 VideoEvaluation.deleted_at.is_(None)
