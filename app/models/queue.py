@@ -61,6 +61,13 @@ class UploadQueue(Base):
     description_final: Mapped[str | None] = mapped_column(Text, nullable=True)
     is_human_override: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
+    # Preset / Advanced Settings
+    category_id: Mapped[str | None] = mapped_column(String(50), default="10", nullable=True)
+    made_for_kids: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    is_altered_content: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    playlist_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    priority: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+
     # Status & scheduling
     status: Mapped[str] = mapped_column(UPLOAD_STATUS, default="PENDING", nullable=False)
     previous_status: Mapped[str | None] = mapped_column(String(50), nullable=True)

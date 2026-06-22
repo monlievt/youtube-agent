@@ -59,6 +59,8 @@ class YouTubeGateway:
         description: str,
         tags: list[str],
         category_id: str = "10",  # 10 = Music
+        made_for_kids: bool = False,
+        is_altered_content: bool = False,
     ) -> str:
         """
         Upload video sebagai PRIVATE dengan publishAt=null.
@@ -69,6 +71,8 @@ class YouTubeGateway:
             "youtube_upload_started",
             channel_id=self._channel_id,
             video_path=video_path,
+            made_for_kids=made_for_kids,
+            is_altered_content=is_altered_content,
             agent="youtube_gateway",
             function="upload_video",
         )
@@ -82,7 +86,7 @@ class YouTubeGateway:
             },
             "status": {
                 "privacyStatus": "private",
-                "selfDeclaredMadeForKids": False,
+                "selfDeclaredMadeForKids": made_for_kids,
             },
         }
 
@@ -194,6 +198,39 @@ class YouTubeGateway:
             return response.get("items", [])
         except HttpError as e:
             self._handle_http_error(e, "get_playlist_items")
+
+    def add_video_to_playlist(self, video_id: str, playlist_id: str) -> None:
+        """Tambahkan video ke playlist tertentu."""
+        log.info(
+            "youtube_add_to_playlist_started",
+            youtube_video_id=video_id,
+            playlist_id=playlist_id,
+        )
+        try:
+            self._service.playlistItems().insert(
+                part="snippet",
+                body={
+                    "snippet": {
+                        "playlistId": playlist_id,
+                        "resourceId": {
+                            "kind": "youtube#video",
+                            "videoId": video_id,
+                        },
+                    }
+                },
+            ).execute()
+            log.info(
+                "youtube_add_to_playlist_done",
+                youtube_video_id=video_id,
+                playlist_id=playlist_id,
+            )
+        except HttpError as e:
+            log.warning(
+                "youtube_add_to_playlist_failed",
+                youtube_video_id=video_id,
+                playlist_id=playlist_id,
+                error_message=str(e),
+            )
 
     def _handle_http_error(self, error: HttpError, operation: str) -> None:
         """Konversi HttpError ke domain exceptions."""

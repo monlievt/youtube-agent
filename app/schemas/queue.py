@@ -24,6 +24,11 @@ class QueueItemResponse(BaseModel):
     title_generated: str | None
     description_generated: str | None
     is_human_override: bool
+    category_id: str | None
+    made_for_kids: bool
+    is_altered_content: bool
+    playlist_id: str | None
+    priority: int
     status: str
     scheduled_time: datetime | None
     youtube_video_id: str | None
@@ -40,8 +45,18 @@ class MetadataOverride(BaseModel):
     """Human override untuk metadata video."""
     title: str
     description: str
+    category_id: str | None = "10"
+    made_for_kids: bool = False
+    is_altered_content: bool = False
+    playlist_id: str | None = None
+    save_as_preset: bool = False
 
 
 class RequeueRequest(BaseModel):
     """Request untuk re-queue video dari FAILED_PERMANENT."""
     reason: str = "Manual re-queue from dashboard"
+
+
+class ReorderRequest(BaseModel):
+    """Request untuk mengurutkan antrean."""
+    direction: str

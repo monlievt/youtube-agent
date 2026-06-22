@@ -34,14 +34,14 @@ class QueueRepository:
         )
         if status:
             q = q.where(UploadQueue.status == status)
-        result = await self._session.execute(q.order_by(UploadQueue.created_at.desc()))
+        result = await self._session.execute(q.order_by(UploadQueue.priority.desc(), UploadQueue.created_at.desc()))
         return list(result.scalars().all())
 
     async def get_all_by_status(self, status: str | None = None) -> list[UploadQueue]:
         q = select(UploadQueue).options(selectinload(UploadQueue.tags)).where(UploadQueue.deleted_at.is_(None))
         if status:
             q = q.where(UploadQueue.status == status)
-        result = await self._session.execute(q.order_by(UploadQueue.created_at.desc()))
+        result = await self._session.execute(q.order_by(UploadQueue.priority.desc(), UploadQueue.created_at.desc()))
         return list(result.scalars().all())
 
     async def lock_next_pending(self) -> UploadQueue | None:
@@ -56,7 +56,7 @@ class QueueRepository:
                 UploadQueue.status == "PENDING",
                 UploadQueue.deleted_at.is_(None),
             )
-            .order_by(UploadQueue.created_at)
+            .order_by(UploadQueue.priority.desc(), UploadQueue.created_at)
             .limit(1)
             .with_for_update(skip_locked=True)
         )

@@ -132,6 +132,13 @@ class MetadataPattern(Base):
     description_template: Mapped[str] = mapped_column(Text, nullable=False)
     tags_template: Mapped[str | None] = mapped_column(String(500), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    
+    # Defaults / Presets
+    category_id: Mapped[str] = mapped_column(String(50), default="10", nullable=False)
+    made_for_kids: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    is_altered_content: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    playlist_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     # Relationships

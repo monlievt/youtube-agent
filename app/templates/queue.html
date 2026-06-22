@@ -128,21 +128,63 @@
 
 <!-- Modal Override Metadata -->
 <div class="modal" id="override-modal" style="display:none">
-    <div class="modal-content">
+    <div class="modal-content" style="max-height: 90vh; overflow-y: auto; max-width: 650px;">
         <div class="modal-header">
-            <h3>✏️ Override Metadata</h3>
+            <h3>✏️ Detail & Override Metadata Video</h3>
             <button class="btn-close" onclick="closeModal()">✕</button>
         </div>
         <div class="modal-body">
             <input type="hidden" id="override-queue-id">
             <div id="metadata-source-status" style="margin-bottom: 12px; font-size: 13px;"></div>
+            
             <label>Judul (max 100 karakter)</label>
             <input type="text" id="override-title" maxlength="100" class="form-input">
             <span id="title-count" class="char-count">0/100</span>
-            <label>Deskripsi (max 5000 karakter)</label>
-            <textarea id="override-description" maxlength="5000" rows="8" class="form-textarea"></textarea>
             
-            <label style="margin-top: 12px; display: block; font-weight: 500;">🏷️ Tags (AI Generated)</label>
+            <label>Deskripsi (max 5000 karakter)</label>
+            <textarea id="override-description" maxlength="5000" rows="6" class="form-textarea"></textarea>
+            
+            <label style="margin-top: 12px; display: block; font-weight: 500;">🖼️ Thumbnail</label>
+            <div style="display: flex; gap: 12px; align-items: center; margin-top: 6px; margin-bottom: 12px;">
+                <img id="thumbnail-preview" src="" style="width: 140px; height: 80px; object-fit: cover; background: var(--color-surface-soft); border-radius: 6px; border: 1px solid var(--color-hairline); display: none;">
+                <div id="no-thumbnail-placeholder" style="width: 140px; height: 80px; background: var(--color-surface-soft); border-radius: 6px; border: 1px dashed var(--color-steel); display: flex; align-items: center; justify-content: center; font-size: 11px; color: var(--color-steel); text-align: center;">Belum ada thumbnail</div>
+                <button class="btn btn-secondary btn-sm" onclick="generateAiThumbnail()" id="btn-gen-thumb">🎨 Generate AI Thumbnail (Free)</button>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; margin-bottom: 12px;">
+                <div>
+                    <label>Kategori Video</label>
+                    <select id="override-category" class="form-input">
+                        <option value="10">Music</option>
+                        <option value="24">Entertainment</option>
+                        <option value="22">People & Blogs</option>
+                        <option value="1">Film & Animation</option>
+                        <option value="20">Gaming</option>
+                        <option value="27">Education</option>
+                    </select>
+                </div>
+                <div>
+                    <label>Playlist ID (YouTube)</label>
+                    <input type="text" id="override-playlist" class="form-input" placeholder="e.g. PLxxx">
+                </div>
+            </div>
+
+            <div style="margin-top: 12px; display: flex; flex-direction: column; gap: 8px;">
+                <label class="checkbox-container" style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: normal; cursor: pointer;">
+                    <input type="checkbox" id="override-kids" style="cursor: pointer;">
+                    Dibuat untuk Anak-anak (Made for Kids)
+                </label>
+                <label class="checkbox-container" style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: normal; cursor: pointer;">
+                    <input type="checkbox" id="override-altered" style="cursor: pointer;">
+                    Konten Hasil Modifikasi / Sintetis (AI Altered Content)
+                </label>
+                <label class="checkbox-container" style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--color-primary); cursor: pointer; margin-top: 4px; border-top: 1px solid var(--color-hairline); padding-top: 8px;">
+                    <input type="checkbox" id="override-save-preset" style="cursor: pointer;">
+                    Simpan pengaturan di atas sebagai preset default channel ini
+                </label>
+            </div>
+
+            <label style="margin-top: 14px; display: block; font-weight: 500;">🏷️ Tags (AI Generated)</label>
             <div id="override-tags-container" style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; padding: 10px; background: var(--color-surface-soft); border-radius: 6px; border: 1px solid var(--color-hairline); min-height: 38px;"></div>
         </div>
         <div class="modal-footer">
@@ -277,15 +319,22 @@ function renderTable(items) {
 
 function buildActions(item) {
     const btns = [];
+    if (item.status === 'PENDING') {
+        btns.push(`<button class="btn btn-xs btn-tertiary" onclick="reorder(${item.id}, 'up')" style="padding: 2px 6px; min-width: auto;" title="Naikkan Urutan">▲</button>`);
+        btns.push(`<button class="btn btn-xs btn-tertiary" onclick="reorder(${item.id}, 'down')" style="padding: 2px 6px; min-width: auto;" title="Turunkan Urutan">▼</button>`);
+    }
     if (item.status === 'AWAITING_APPROVAL') {
         btns.push(`<button class="btn btn-xs btn-green" onclick="approve(${item.id})">✓ Approve</button>`);
         btns.push(`<button class="btn btn-xs btn-red" onclick="reject(${item.id})">✗ Reject</button>`);
     }
-    if (['AWAITING_APPROVAL','METADATA_READY','SCHEDULED'].includes(item.status)) {
+    if (['PENDING', 'AWAITING_APPROVAL','METADATA_READY','SCHEDULED'].includes(item.status)) {
         btns.push(`<button class="btn btn-xs btn-blue" onclick="openOverride(${item.id})">✏️ Edit</button>`);
     }
-    if (['FAILED_PERMANENT','THUMBNAIL_FAILED','PAUSED_EXTERNAL'].includes(item.status)) {
+    if (['FAILED_PERMANENT','THUMBNAIL_FAILED','PAUSED_EXTERNAL','PAUSED','QUOTA_EXHAUSTED'].includes(item.status)) {
         btns.push(`<button class="btn btn-xs btn-orange" onclick="requeue(${item.id})">🔄 Re-queue</button>`);
+    }
+    if (!['DONE', 'SCHEDULED_PUBLIC', 'UPLOADING'].includes(item.status)) {
+        btns.push(`<button class="btn btn-xs" onclick="deleteItem(${item.id})" style="background: #ef4444; color: white; border: 1px solid #dc2626;">🗑️ Hapus</button>`);
     }
     return btns.join('');
 }
@@ -344,12 +393,32 @@ async function openOverride(id) {
         document.getElementById('override-description').value = desc;
         document.getElementById('title-count').textContent = `${title.length}/100`;
 
+        // Set advanced fields
+        document.getElementById('override-category').value = item.category_id || '10';
+        document.getElementById('override-playlist').value = item.playlist_id || '';
+        document.getElementById('override-kids').checked = item.made_for_kids || false;
+        document.getElementById('override-altered').checked = item.is_altered_content || false;
+        document.getElementById('override-save-preset').checked = false;
+
         // Render source status
         const statusEl = document.getElementById('metadata-source-status');
         if (item.is_human_override) {
             statusEl.innerHTML = `Sumber: <strong style="color: var(--color-steel); background: var(--color-surface-soft); padding: 2px 6px; border-radius: 4px; border: 1px solid var(--color-hairline);">✍️ Diedit Manual</strong>`;
         } else {
             statusEl.innerHTML = `Sumber: <strong style="color: #0369a1; background: #e0f2fe; padding: 2px 6px; border-radius: 4px; border: 1px solid #bae6fd;">🤖 AI Generated</strong>`;
+        }
+
+        // Render thumbnail preview
+        const previewEl = document.getElementById('thumbnail-preview');
+        const placeholderEl = document.getElementById('no-thumbnail-placeholder');
+        if (item.thumbnail_path) {
+            previewEl.src = `/api/queue/${id}/thumbnail?t=${new Date().getTime()}`;
+            previewEl.style.display = 'block';
+            placeholderEl.style.display = 'none';
+        } else {
+            previewEl.src = '';
+            previewEl.style.display = 'none';
+            placeholderEl.style.display = 'flex';
         }
 
         // Render tags
@@ -373,11 +442,29 @@ async function saveOverride() {
     const id = document.getElementById('override-queue-id').value;
     const title = document.getElementById('override-title').value;
     const description = document.getElementById('override-description').value;
-    await fetch(`/api/queue/${id}/metadata`, {
+    const category_id = document.getElementById('override-category').value;
+    const playlist_id = document.getElementById('override-playlist').value;
+    const made_for_kids = document.getElementById('override-kids').checked;
+    const is_altered_content = document.getElementById('override-altered').checked;
+    const save_as_preset = document.getElementById('override-save-preset').checked;
+
+    const res = await fetch(`/api/queue/${id}/metadata`, {
         method:'PATCH',
         headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({title, description})
+        body: JSON.stringify({
+            title, 
+            description,
+            category_id,
+            playlist_id,
+            made_for_kids,
+            is_altered_content,
+            save_as_preset
+        })
     });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        alert('Gagal menyimpan: ' + (err.detail || 'Terjadi kesalahan server'));
+    }
     closeModal();
     loadQueue();
 }
@@ -385,6 +472,60 @@ async function saveOverride() {
 document.getElementById('override-title')?.addEventListener('input', function() {
     document.getElementById('title-count').textContent = `${this.value.length}/100`;
 });
+
+async function generateAiThumbnail() {
+    const id = document.getElementById('override-queue-id').value;
+    const btn = document.getElementById('btn-gen-thumb');
+    const oldText = btn.textContent;
+    btn.textContent = '⏳ Generating...';
+    btn.disabled = true;
+
+    try {
+        const res = await fetch(`/api/queue/${id}/generate-ai-thumbnail`, { method: 'POST' });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.detail || 'Gagal menghubungi server');
+        }
+        const data = await res.json();
+        
+        // Refresh preview
+        const previewEl = document.getElementById('thumbnail-preview');
+        const placeholderEl = document.getElementById('no-thumbnail-placeholder');
+        previewEl.src = data.thumbnail_path;
+        previewEl.style.display = 'block';
+        placeholderEl.style.display = 'none';
+        
+        alert('Thumbnail AI berhasil dibuat!');
+    } catch(e) {
+        alert('Gagal generate thumbnail: ' + e.message);
+    } finally {
+        btn.textContent = oldText;
+        btn.disabled = false;
+    }
+}
+
+async function deleteItem(id) {
+    if (!confirm(`Apakah Anda yakin ingin menghapus antrean #${id}? Tindakan ini akan menghapus video di penyimpanan server staging.`)) return;
+    const res = await fetch(`/api/queue/${id}`, { method: 'DELETE' });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        alert('Gagal menghapus: ' + (err.detail || 'Terjadi kesalahan server'));
+    }
+    loadQueue();
+}
+
+async function reorder(id, direction) {
+    const res = await fetch(`/api/queue/${id}/reorder`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ direction })
+    });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        alert('Gagal mengatur urutan: ' + (err.detail || 'Terjadi kesalahan server'));
+    }
+    loadQueue();
+}
 
 async function loadDashboardStats() {
     try {

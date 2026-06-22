@@ -103,12 +103,25 @@ class UploadService:
         )
         checksum = await self._queue_repo.create_checksum(checksum)
 
+        # Ambil preset dari active pattern jika ada
+        patterns = await self._channel_repo.get_patterns(channel_id)
+        active_pattern = next((p for p in patterns if p.is_active), None)
+
+        category_id = active_pattern.category_id if active_pattern else "10"
+        made_for_kids = active_pattern.made_for_kids if active_pattern else False
+        is_altered_content = active_pattern.is_altered_content if active_pattern else False
+        playlist_id = active_pattern.playlist_id if active_pattern else None
+
         # Insert ke queue
         queue_item = UploadQueue(
             channel_id=channel_id,
             file_checksum_id=checksum.id,
             staging_path=staging_path,
             status="PENDING",
+            category_id=category_id,
+            made_for_kids=made_for_kids,
+            is_altered_content=is_altered_content,
+            playlist_id=playlist_id,
         )
         queue_item = await self._queue_repo.create(queue_item)
 
@@ -195,7 +208,14 @@ class UploadService:
                 title=queue_item.title_final or "Untitled",
                 description=queue_item.description_final or "",
                 tags=tags,
+                category_id=queue_item.category_id or "10",
+                made_for_kids=queue_item.made_for_kids,
+                is_altered_content=queue_item.is_altered_content,
             )
+
+            # Jika ada playlist kustom, tambahkan video ke playlist tersebut
+            if queue_item.playlist_id:
+                yt.add_video_to_playlist(youtube_video_id, queue_item.playlist_id)
 
             attempt.youtube_video_id = youtube_video_id
             attempt.success = True
